@@ -23,7 +23,7 @@ provider:
 
 custom:
   allowedOrigin:
-    dev: http://localhost:5174
+    dev: https://the-gooners-world.web.app
     prod: https://the-gooners-world.web.app
 
 functions:
