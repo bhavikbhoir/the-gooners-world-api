@@ -1,0 +1,16 @@
+{
+  "name": "the-gooners-world-api",
+  "version": "1.0.0",
+  "description": "Backend API proxy for The Gooners World",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "deploy:dev": "serverless deploy --stage dev",
+    "deploy:prod": "serverless deploy --stage prod",
+    "offline": "serverless offline start"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "serverless": "^3.39.0",
+    "serverless-offline": "^13.8.1"
+  }
+}

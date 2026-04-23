@@ -1,0 +1,49 @@
+service: arsenal-api
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  environment:
+    FOOTBALL_API_KEY: ${env:FOOTBALL_API_KEY, ssm:/tgw/football-api-key}
+    NEWS_API_KEY: ${env:NEWS_API_KEY, ssm:/tgw/news-api-key}
+    ALLOWED_ORIGIN: ${env:ALLOWED_ORIGIN, self:custom.allowedOrigin.${self:provider.stage}}
+  apiGateway:
+    apiKeys:
+      - tgw-frontend-${self:provider.stage}
+    usagePlan:
+      quota:
+        limit: 500
+        period: DAY
+      throttle:
+        burstLimit: 10
+        rateLimit: 5
+
+custom:
+  allowedOrigin:
+    dev: http://localhost:5174
+    prod: https://the-gooners-world.web.app
+
+functions:
+  footballProxy:
+    handler: functions/proxy/footballProxy.handler
+    events:
+      - http:
+          path: proxy/football
+          method: get
+          cors: true
+          private: true
+
+  newsProxy:
+    handler: functions/proxy/newsProxy.handler
+    events:
+      - http:
+          path: proxy/news
+          method: get
+          cors: true
+          private: true
+
+plugins:
+  - serverless-offline
