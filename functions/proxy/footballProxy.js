@@ -18,10 +18,7 @@ function fetch(url, headers) {
 exports.handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin || '';
   const corsOrigin = origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN;
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': corsOrigin,
-    'Vary': 'Origin',
-  };
+  const corsHeaders = { 'Access-Control-Allow-Origin': corsOrigin, 'Vary': 'Origin' };
 
   if (origin && origin !== ALLOWED_ORIGIN) {
     return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Forbidden' }) };
@@ -29,19 +26,31 @@ exports.handler = async (event) => {
 
   try {
     const type = event.queryStringParameters?.type || 'matches';
-    let url;
+    let url, cache;
 
-    if (type === 'standings') {
-      url = `${BASE}/competitions/PL/standings`;
-    } else {
-      url = `${BASE}/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED,FINISHED&limit=20`;
+    switch (type) {
+      case 'standings':
+        url = `${BASE}/competitions/PL/standings`;
+        cache = 900;
+        break;
+      case 'live':
+        url = `${BASE}/teams/${ARSENAL_ID}/matches?status=LIVE,IN_PLAY,PAUSED&limit=1`;
+        cache = 30;
+        break;
+      case 'squad':
+        url = `${BASE}/teams/${ARSENAL_ID}`;
+        cache = 86400;
+        break;
+      default:
+        url = `${BASE}/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED,FINISHED&limit=20`;
+        cache = 900;
     }
 
     const res = await fetch(url, { 'X-Auth-Token': API_KEY });
 
     return {
       statusCode: res.status,
-      headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=900' },
+      headers: { ...corsHeaders, 'Cache-Control': `public, max-age=${cache}` },
       body: res.body,
     };
   } catch (error) {
