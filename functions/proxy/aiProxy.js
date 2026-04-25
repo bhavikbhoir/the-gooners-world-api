@@ -4,7 +4,6 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
 const REGION = process.env.AWS_REGION || 'us-east-1';
 
 async function callBedrock(prompt) {
-  // Use AWS SDK v3 built into Node 22 Lambda runtime
   const { BedrockRuntimeClient, InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
   const client = new BedrockRuntimeClient({ region: REGION });
 
@@ -43,24 +42,40 @@ exports.handler = async (event) => {
     let prompt, cache;
 
     if (type === 'prediction') {
-      prompt = `You are an Arsenal FC football analyst writing for a fan site. Give a brief match prediction (3-4 sentences max). Include a predicted score and win/draw/loss percentage. Be confident and opinionated. Write in third person — never say "I predict" or "I think". Use phrases like "Arsenal are expected to", "This one looks like", "The Gunners should".
+      prompt = `You are an Arsenal FC football analyst writing for a fan site.
 
-Base your prediction primarily on the most recent results. The results below are listed most recent first.
+TASK: Write a 3-4 sentence match prediction. Include a predicted score and win/draw/loss percentage.
+
+RULES:
+- Write in third person. Never say "I predict" or "I think"
+- Use phrases like "Arsenal are expected to", "This one looks like", "The Gunners should"
+- Focus ONLY on the league form when predicting a league match, and cup form for cup matches
+- The most recent result is the FIRST one listed — weight it most heavily
+- If Arsenal lost 2 of the last 3, acknowledge poor form — do not predict a dominant win
+- Be realistic, not blindly optimistic
 
 Next match: ${data.home} vs ${data.away}
 Competition: ${data.competition}
 Date: ${data.date}
-Last 5 results (most recent first): ${data.recentForm}
+
+Last 5 results (MOST RECENT FIRST — first result is the latest):
+${data.recentForm}
 
 Respond in plain text only, no markdown.`;
       cache = 3600;
     } else if (type === 'summary') {
-      prompt = `You are an Arsenal FC match reporter. Write a 2-sentence match summary for Arsenal fans based ONLY on the data provided. Be passionate but strictly factual.
+      prompt = `You are an Arsenal FC match reporter writing for a fan site.
+
+TASK: Write exactly 2 sentences summarizing this match result for Arsenal fans.
 
 RULES:
 - Do NOT mention specific goalscorers, assists, or match events — you do not have that data
-- Only reference the final score, teams, competition, and result (win/draw/loss)
-- Focus on what the result means for Arsenal (league position, qualification, momentum)
+- Only reference the final score, teams, competition, and result
+- Focus on what the result MEANS: league position impact, qualification implications, momentum
+- For Champions League: a draw can be a positive result if it secures qualification or progression
+- For Premier League: relate to title race, top 4, or relegation battle as appropriate
+- For FA Cup / Carabao Cup / other cups: focus on progression to next round
+- Be passionate but strictly factual about the score
 
 Match: ${data.home} ${data.homeScore} - ${data.awayScore} ${data.away}
 Competition: ${data.competition}
