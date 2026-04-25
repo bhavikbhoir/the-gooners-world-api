@@ -53,7 +53,12 @@ Recent Arsenal form (last 5): ${data.recentForm}
 Respond in plain text only, no markdown.`;
       cache = 3600;
     } else if (type === 'summary') {
-      prompt = `You are an Arsenal FC match reporter. Write a brief 2-3 sentence match summary for Arsenal fans. Be passionate but factual.
+      prompt = `You are an Arsenal FC match reporter. Write a 2-sentence match summary for Arsenal fans based ONLY on the data provided. Be passionate but strictly factual.
+
+RULES:
+- Do NOT mention specific goalscorers, assists, or match events — you do not have that data
+- Only reference the final score, teams, competition, and result (win/draw/loss)
+- Focus on what the result means for Arsenal (league position, qualification, momentum)
 
 Match: ${data.home} ${data.homeScore} - ${data.awayScore} ${data.away}
 Competition: ${data.competition}
