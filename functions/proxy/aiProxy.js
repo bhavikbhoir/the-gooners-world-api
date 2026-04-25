@@ -43,12 +43,14 @@ exports.handler = async (event) => {
     let prompt, cache;
 
     if (type === 'prediction') {
-      prompt = `You are an Arsenal FC football analyst writing for a fan site. Based on this data, give a brief match prediction (3-4 sentences max). Include a predicted score and win/draw/loss percentage. Be confident and opinionated. Write in third person — never say "I predict" or "I think". Use phrases like "Arsenal are expected to", "This one looks like", "The Gunners should".
+      prompt = `You are an Arsenal FC football analyst writing for a fan site. Give a brief match prediction (3-4 sentences max). Include a predicted score and win/draw/loss percentage. Be confident and opinionated. Write in third person — never say "I predict" or "I think". Use phrases like "Arsenal are expected to", "This one looks like", "The Gunners should".
+
+Base your prediction primarily on the most recent results. The results below are listed most recent first.
 
 Next match: ${data.home} vs ${data.away}
 Competition: ${data.competition}
 Date: ${data.date}
-Recent Arsenal form (last 5): ${data.recentForm}
+Last 5 results (most recent first): ${data.recentForm}
 
 Respond in plain text only, no markdown.`;
       cache = 3600;
