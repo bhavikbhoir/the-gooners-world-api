@@ -9,18 +9,17 @@ async function callBedrock(prompt) {
   const client = new BedrockRuntimeClient({ region: REGION });
 
   const res = await client.send(new InvokeModelCommand({
-    modelId: 'anthropic.claude-3-haiku-20240307-v1:0',
+    modelId: 'amazon.nova-micro-v1:0',
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify({
-      anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }]
+      inferenceConfig: { maxTokens: 300 },
+      messages: [{ role: 'user', content: [{ text: prompt }] }]
     })
   }));
 
   const body = JSON.parse(new TextDecoder().decode(res.body));
-  return body.content?.[0]?.text || '';
+  return body.output?.message?.content?.[0]?.text || '';
 }
 
 exports.handler = async (event) => {
