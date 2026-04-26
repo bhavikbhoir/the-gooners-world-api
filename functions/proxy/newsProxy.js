@@ -1,7 +1,7 @@
 const https = require('https');
 
 const API_KEY = process.env.NEWS_API_KEY;
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || '').split(',');
 const BASE = 'https://newsdata.io/api/1/latest';
 
 function fetch(url) {
@@ -16,13 +16,14 @@ function fetch(url) {
 
 exports.handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin || '';
-  const corsOrigin = origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN;
+  const isAllowed = ALLOWED_ORIGINS.includes(origin);
+  const corsOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
   const corsHeaders = {
     'Access-Control-Allow-Origin': corsOrigin,
     'Vary': 'Origin',
   };
 
-  if (origin && origin !== ALLOWED_ORIGIN) {
+  if (origin && !isAllowed) {
     return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Forbidden' }) };
   }
 

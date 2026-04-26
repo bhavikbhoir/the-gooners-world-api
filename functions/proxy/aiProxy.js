@@ -1,6 +1,6 @@
 const https = require('https');
 
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || '').split(',');
 const REGION = process.env.AWS_REGION || 'us-east-1';
 
 async function callBedrock(prompt) {
@@ -23,10 +23,11 @@ async function callBedrock(prompt) {
 
 exports.handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin || '';
-  const corsOrigin = origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN;
+  const isAllowed = ALLOWED_ORIGINS.includes(origin);
+  const corsOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
   const corsHeaders = { 'Access-Control-Allow-Origin': corsOrigin, 'Vary': 'Origin' };
 
-  if (origin && origin !== ALLOWED_ORIGIN) {
+  if (origin && !isAllowed) {
     return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Forbidden' }) };
   }
 
