@@ -9,7 +9,7 @@ provider:
   environment:
     FOOTBALL_API_KEY: ${env:FOOTBALL_API_KEY, ssm:/tgw/football-api-key}
     NEWS_API_KEY: ${env:NEWS_API_KEY, ssm:/tgw/news-api-key}
-    ALLOWED_ORIGIN: ${env:ALLOWED_ORIGIN, self:custom.allowedOrigin.${self:provider.stage}}
+    ALLOWED_ORIGINS: ${self:custom.allowedOrigins.${self:provider.stage}}
   iam:
     role:
       statements:
@@ -21,18 +21,19 @@ provider:
   apiGateway:
     apiKeys:
       - tgw-frontend-${self:provider.stage}
+      - footbball-app-${self:provider.stage}
     usagePlan:
       quota:
-        limit: 500
+        limit: 1000
         period: DAY
       throttle:
-        burstLimit: 10
-        rateLimit: 5
+        burstLimit: 15
+        rateLimit: 10
 
 custom:
-  allowedOrigin:
-    dev: https://the-gooners-world.web.app
-    prod: https://the-gooners-world.web.app
+  allowedOrigins:
+    dev: "https://the-gooners-world.web.app,https://the-footbball-app.web.app"
+    prod: "https://the-gooners-world.web.app,https://the-footbball-app.web.app"
 
 functions:
   footballProxy:
