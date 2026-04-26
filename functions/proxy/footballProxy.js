@@ -26,11 +26,35 @@ exports.handler = async (event) => {
 
   try {
     const type = event.queryStringParameters?.type || 'matches';
+    const matchId = event.queryStringParameters?.matchId;
+    const season = event.queryStringParameters?.season;
     let url, cache;
 
     switch (type) {
       case 'standings':
         url = `${BASE}/competitions/PL/standings`;
+        cache = 900;
+        break;
+      case 'cl-standings':
+        url = `${BASE}/competitions/CL/standings`;
+        cache = 900;
+        break;
+      case 'cl-matches':
+        url = `${BASE}/teams/${ARSENAL_ID}/matches?competitions=CL&status=SCHEDULED,TIMED,FINISHED&limit=40`;
+        cache = 900;
+        break;
+      case 'scorers':
+        url = `${BASE}/competitions/PL/scorers?limit=20`;
+        cache = 1800;
+        break;
+      case 'h2h':
+        if (!matchId) throw new Error('matchId required');
+        url = `${BASE}/matches/${matchId}/head2head?limit=10`;
+        cache = 86400;
+        break;
+      case 'match':
+        if (!matchId) throw new Error('matchId required');
+        url = `${BASE}/matches/${matchId}`;
         cache = 900;
         break;
       case 'live':
@@ -39,6 +63,14 @@ exports.handler = async (event) => {
         break;
       case 'squad':
         url = `${BASE}/teams/${ARSENAL_ID}`;
+        cache = 86400;
+        break;
+      case 'team':
+        url = `${BASE}/teams/${ARSENAL_ID}`;
+        cache = 86400;
+        break;
+      case 'season-compare':
+        url = `${BASE}/competitions/PL/standings?season=${season || 2024}`;
         cache = 86400;
         break;
       default:
