@@ -10,7 +10,7 @@
       "get": {
         "operationId": "GetFixtures",
         "summary": "Get Arsenal's upcoming and recent match fixtures with scores",
-        "description": "Returns Arsenal FC's scheduled, live, and completed matches including opponent, date, score, and competition. Use this when the user asks about upcoming matches, recent results, or fixture schedule.",
+        "description": "Returns Arsenal FC's scheduled, live, and completed matches including opponent, date, score, and competition. Use this when the user asks about upcoming matches, recent results, or fixture schedule. IMPORTANT: When user asks about the 'next match', use type=upcoming with limit=3 to get the nearest upcoming matches.",
         "parameters": [
           {
             "name": "limit",
@@ -18,6 +18,13 @@
             "description": "Number of matches to return (default 10, max 20)",
             "required": false,
             "schema": { "type": "integer", "default": 10 }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter type: 'upcoming' for scheduled/timed matches only, 'recent' for finished matches only, 'all' for both. Use 'upcoming' when user asks about next match.",
+            "required": false,
+            "schema": { "type": "string", "default": "upcoming", "enum": ["upcoming", "recent", "all"] }
           }
         ],
         "responses": {

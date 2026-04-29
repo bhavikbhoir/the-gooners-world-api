@@ -66,7 +66,18 @@ function footballApi(path) {
 
 async function getFixtures(params) {
   const limit = params.limit || 10;
-  const data = await footballApi(`/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED,FINISHED&limit=${limit}`);
+  const type = params.type || 'all';
+
+  let url;
+  if (type === 'upcoming') {
+    url = `/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED&limit=${limit}`;
+  } else if (type === 'recent') {
+    url = `/teams/${ARSENAL_ID}/matches?status=FINISHED&limit=${limit}`;
+  } else {
+    url = `/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED,FINISHED&limit=${limit}`;
+  }
+
+  const data = await footballApi(url);
   const matches = (data.matches || []).map((m) => ({
     home: m.homeTeam.shortName,
     away: m.awayTeam.shortName,
