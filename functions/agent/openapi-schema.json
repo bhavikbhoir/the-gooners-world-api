@@ -25,6 +25,13 @@
             "description": "Filter type: 'upcoming' for scheduled/timed matches only, 'recent' for finished matches only, 'all' for both. Use 'upcoming' when user asks about next match.",
             "required": false,
             "schema": { "type": "string", "default": "upcoming", "enum": ["upcoming", "recent", "all"] }
+          },
+          {
+            "name": "competition",
+            "in": "query",
+            "description": "Filter by competition: 'PL' for Premier League, 'CL' for Champions League. Leave empty for all competitions.",
+            "required": false,
+            "schema": { "type": "string" }
           }
         ],
         "responses": {

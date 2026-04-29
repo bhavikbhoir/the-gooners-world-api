@@ -66,16 +66,28 @@ function footballApi(path) {
 
 async function getFixtures(params) {
   const limit = params.limit || 10;
-  const type = params.type || 'all';
+  const type = params.type || 'upcoming';
+  const competition = (params.competition || '').toUpperCase();
 
   const statusMap = {
     upcoming: 'SCHEDULED,TIMED',
     recent: 'FINISHED',
     all: 'SCHEDULED,TIMED,FINISHED',
   };
-  const status = statusMap[type] || statusMap.all;
+  const status = statusMap[type] || statusMap.upcoming;
 
-  // Fetch PL + CL in parallel to catch all competitions
+  // If specific competition requested, query just that
+  if (competition === 'CL' || competition === 'UCL' || competition === 'CHAMPIONS LEAGUE') {
+    const data = await footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`);
+    return { matches: formatMatches(data.matches) };
+  }
+
+  if (competition === 'PL' || competition === 'PREMIER LEAGUE') {
+    const data = await footballApi(`/teams/${ARSENAL_ID}/matches?competitions=PL&status=${status}&limit=${limit}`);
+    return { matches: formatMatches(data.matches) };
+  }
+
+  // Default: fetch PL + CL and merge
   const [plData, clData] = await Promise.all([
     footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=${limit}`),
     footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`),
@@ -92,7 +104,11 @@ async function getFixtures(params) {
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))
     .slice(0, limit);
 
-  const matches = allMatches.map((m) => ({
+  return { matches: formatMatches(allMatches) };
+}
+
+function formatMatches(matches) {
+  return (matches || []).map((m) => ({
     home: m.homeTeam.shortName,
     away: m.awayTeam.shortName,
     date: m.utcDate,
@@ -100,8 +116,6 @@ async function getFixtures(params) {
     score: m.score?.fullTime?.home != null ? `${m.score.fullTime.home}-${m.score.fullTime.away}` : null,
     competition: m.competition.name,
   }));
-
-  return { matches };
 }
 
 async function getStandings(params) {

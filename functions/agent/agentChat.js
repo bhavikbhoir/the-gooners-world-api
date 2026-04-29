@@ -8,6 +8,22 @@
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',');
 const AGENT_ID = process.env.BEDROCK_AGENT_ID;
 const AGENT_ALIAS_ID = process.env.BEDROCK_AGENT_ALIAS_ID;
+const MAX_MSG_LENGTH = 500;
+const MAX_REQUESTS_PER_IP = 60; // per 10 minutes
+
+// Simple in-memory rate limiter (resets on cold start — good enough for Lambda)
+const ipCounts = {};
+const WINDOW_MS = 10 * 60 * 1000;
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  if (!ipCounts[ip] || now - ipCounts[ip].start > WINDOW_MS) {
+    ipCounts[ip] = { count: 1, start: now };
+    return true;
+  }
+  ipCounts[ip].count++;
+  return ipCounts[ip].count <= MAX_REQUESTS_PER_IP;
+}
 
 function getCorsHeaders(origin) {
   const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -36,10 +52,20 @@ exports.handler = async (event) => {
   }
 
   try {
+    const ip = event.requestContext?.identity?.sourceIp || 'unknown';
+
+    if (!checkRateLimit(ip)) {
+      return { statusCode: 429, headers: cors, body: JSON.stringify({ error: 'Too many requests. Please wait a few minutes.' }) };
+    }
+
     const { message, sessionId: incomingSessionId } = JSON.parse(event.body || '{}');
 
     if (!message) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'message is required' }) };
+    }
+
+    if (message.length > MAX_MSG_LENGTH) {
+      return { statusCode: 400, headers: cors, body: JSON.stringify({ error: `Message too long. Max ${MAX_MSG_LENGTH} characters.` }) };
     }
 
     const sessionId = incomingSessionId || `tgw-${Date.now()}`;
