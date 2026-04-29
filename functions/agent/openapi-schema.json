@@ -168,6 +168,50 @@
         }
       }
     },
+    "/GetScorers": {
+      "get": {
+        "operationId": "GetScorers",
+        "summary": "Get top scorers in a league",
+        "description": "Returns the top 20 goal scorers in a competition with goals, assists, and penalties. Use this when the user asks about top scorers, golden boot, who has the most goals, or Arsenal's top scorer.",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "description": "League code: PL (Premier League), CL (Champions League). Default PL.",
+            "required": false,
+            "schema": { "type": "string", "default": "PL" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top scorers list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "competition": { "type": "string" },
+                    "scorers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "player": { "type": "string" },
+                          "team": { "type": "string" },
+                          "goals": { "type": "integer" },
+                          "assists": { "type": "integer" },
+                          "penalties": { "type": "integer" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/GetNews": {
       "get": {
         "operationId": "GetNews",

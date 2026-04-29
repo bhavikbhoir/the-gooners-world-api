@@ -68,24 +68,39 @@ async function getFixtures(params) {
   const limit = params.limit || 10;
   const type = params.type || 'all';
 
-  let url;
-  if (type === 'upcoming') {
-    url = `/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED&limit=${limit}`;
-  } else if (type === 'recent') {
-    url = `/teams/${ARSENAL_ID}/matches?status=FINISHED&limit=${limit}`;
-  } else {
-    url = `/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED,FINISHED&limit=${limit}`;
-  }
+  const statusMap = {
+    upcoming: 'SCHEDULED,TIMED',
+    recent: 'FINISHED',
+    all: 'SCHEDULED,TIMED,FINISHED',
+  };
+  const status = statusMap[type] || statusMap.all;
 
-  const data = await footballApi(url);
-  const matches = (data.matches || []).map((m) => ({
+  // Fetch PL + CL in parallel to catch all competitions
+  const [plData, clData] = await Promise.all([
+    footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=${limit}`),
+    footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`),
+  ]);
+
+  const seen = new Set();
+  const allMatches = [...(plData.matches || []), ...(clData.matches || [])]
+    .filter((m) => {
+      const key = `${m.utcDate}-${m.homeTeam.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))
+    .slice(0, limit);
+
+  const matches = allMatches.map((m) => ({
     home: m.homeTeam.shortName,
     away: m.awayTeam.shortName,
     date: m.utcDate,
     status: m.status,
-    score: m.score?.fullTime ? `${m.score.fullTime.home}-${m.score.fullTime.away}` : null,
+    score: m.score?.fullTime?.home != null ? `${m.score.fullTime.home}-${m.score.fullTime.away}` : null,
     competition: m.competition.name,
   }));
+
   return { matches };
 }
 
@@ -129,6 +144,19 @@ async function getSquad() {
     number: p.shirtNumber,
   }));
   return { team: data.name, coach: data.coach?.name, squad };
+}
+
+async function getScorers(params) {
+  const league = params.league || 'PL';
+  const data = await footballApi(`/competitions/${league}/scorers?limit=20`);
+  const scorers = (data.scorers || []).map((s) => ({
+    player: s.player.name,
+    team: s.team.shortName,
+    goals: s.goals,
+    assists: s.assists,
+    penalties: s.penalties,
+  }));
+  return { competition: data.competition?.name, scorers };
 }
 
 async function getNews() {
@@ -175,6 +203,7 @@ const ACTIONS = {
   GetStandings: getStandings,
   GetLiveScore: getLiveScore,
   GetSquad: getSquad,
+  GetScorers: getScorers,
   GetNews: getNews,
   GetPrediction: getPrediction,
   GetMatchSummary: getMatchSummary,
