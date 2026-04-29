@@ -3,7 +3,7 @@ useDotenv: true
 
 provider:
   name: aws
-  runtime: nodejs22.x
+  runtime: nodejs20.x
   region: us-east-1
   stage: ${opt:stage, 'dev'}
   environment:
@@ -18,6 +18,12 @@ provider:
             - bedrock:InvokeModel
           Resource:
             - "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0"
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeAgent
+          Resource:
+            - "arn:aws:bedrock:us-east-1:*:agent/*"
+            - "arn:aws:bedrock:us-east-1:*:agent-alias/*"
   apiGateway:
     apiKeys:
       - tgw-frontend-${self:provider.stage}
@@ -61,6 +67,26 @@ functions:
       - http:
           path: proxy/ai
           method: get
+          cors: true
+          private: true
+
+  # Bedrock Agent Core — action group handler
+  agentHandler:
+    handler: functions/agent/agentHandler.handler
+    timeout: 30
+    description: Bedrock Agent Core action group handler for Arsenal FC Assistant
+
+  # Agent chat endpoint — invoked by frontend chat widget
+  agentChat:
+    handler: functions/agent/agentChat.handler
+    timeout: 30
+    environment:
+      BEDROCK_AGENT_ID: ${env:BEDROCK_AGENT_ID, 'PLACEHOLDER'}
+      BEDROCK_AGENT_ALIAS_ID: ${env:BEDROCK_AGENT_ALIAS_ID, 'PLACEHOLDER'}
+    events:
+      - http:
+          path: agent/chat
+          method: post
           cors: true
           private: true
 

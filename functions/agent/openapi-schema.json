@@ -1,0 +1,258 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Arsenal FC Assistant Tools",
+    "version": "1.0.0",
+    "description": "Action group for the Arsenal FC AI Assistant powered by Bedrock Agent Core"
+  },
+  "paths": {
+    "/GetFixtures": {
+      "get": {
+        "operationId": "GetFixtures",
+        "summary": "Get Arsenal's upcoming and recent match fixtures with scores",
+        "description": "Returns Arsenal FC's scheduled, live, and completed matches including opponent, date, score, and competition. Use this when the user asks about upcoming matches, recent results, or fixture schedule.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of matches to return (default 10, max 20)",
+            "required": false,
+            "schema": { "type": "integer", "default": 10 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of Arsenal matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "home": { "type": "string" },
+                          "away": { "type": "string" },
+                          "date": { "type": "string" },
+                          "status": { "type": "string" },
+                          "score": { "type": "string" },
+                          "competition": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/GetStandings": {
+      "get": {
+        "operationId": "GetStandings",
+        "summary": "Get league standings table",
+        "description": "Returns the full league standings table with position, points, wins, draws, losses, and goal difference. Use this when the user asks about league position, table, points, or how teams compare.",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "description": "League code: PL (Premier League), CL (Champions League), PD (La Liga), BL1 (Bundesliga), SA (Serie A), FL1 (Ligue 1)",
+            "required": false,
+            "schema": { "type": "string", "default": "PL" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "League standings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "league": { "type": "string" },
+                    "table": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "position": { "type": "integer" },
+                          "team": { "type": "string" },
+                          "played": { "type": "integer" },
+                          "won": { "type": "integer" },
+                          "drawn": { "type": "integer" },
+                          "lost": { "type": "integer" },
+                          "points": { "type": "integer" },
+                          "gd": { "type": "integer" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/GetLiveScore": {
+      "get": {
+        "operationId": "GetLiveScore",
+        "summary": "Get current live Arsenal match score",
+        "description": "Returns the current live score if Arsenal is playing right now. Use this when the user asks about a live match, current score, or what's happening right now.",
+        "responses": {
+          "200": {
+            "description": "Live match data or no-match indicator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "live": { "type": "boolean" },
+                    "home": { "type": "string" },
+                    "away": { "type": "string" },
+                    "homeScore": { "type": "integer" },
+                    "awayScore": { "type": "integer" },
+                    "minute": { "type": "integer" },
+                    "competition": { "type": "string" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/GetSquad": {
+      "get": {
+        "operationId": "GetSquad",
+        "summary": "Get Arsenal's current squad and coach",
+        "description": "Returns the full Arsenal squad with player names, positions, nationalities, and shirt numbers. Use this when the user asks about players, squad, team roster, or specific player info.",
+        "responses": {
+          "200": {
+            "description": "Squad data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "team": { "type": "string" },
+                    "coach": { "type": "string" },
+                    "squad": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "position": { "type": "string" },
+                          "nationality": { "type": "string" },
+                          "number": { "type": "integer" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/GetNews": {
+      "get": {
+        "operationId": "GetNews",
+        "summary": "Get latest Arsenal FC news articles",
+        "description": "Returns the latest Arsenal news headlines with source and links. Use this when the user asks about news, transfers, rumors, or what's happening with Arsenal off the pitch.",
+        "responses": {
+          "200": {
+            "description": "News articles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "articles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": { "type": "string" },
+                          "description": { "type": "string" },
+                          "source": { "type": "string" },
+                          "date": { "type": "string" },
+                          "link": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/GetPrediction": {
+      "get": {
+        "operationId": "GetPrediction",
+        "summary": "Get AI-generated match prediction for an upcoming Arsenal match",
+        "description": "Generates an AI prediction for an upcoming match including predicted score and win probability. Use this when the user asks for a prediction, who will win, or what to expect from a match.",
+        "parameters": [
+          { "name": "home", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Home team name" },
+          { "name": "away", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Away team name" },
+          { "name": "competition", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Competition name" },
+          { "name": "date", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Match date" },
+          { "name": "recentForm", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Last 5 results as text, most recent first" }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI prediction text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prediction": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/GetMatchSummary": {
+      "get": {
+        "operationId": "GetMatchSummary",
+        "summary": "Get AI-generated summary of a completed Arsenal match",
+        "description": "Generates a brief AI summary of a completed match result and what it means. Use this when the user asks about a past result or how a match went.",
+        "parameters": [
+          { "name": "home", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Home team name" },
+          { "name": "away", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Away team name" },
+          { "name": "homeScore", "in": "query", "required": true, "schema": { "type": "integer" }, "description": "Home team score" },
+          { "name": "awayScore", "in": "query", "required": true, "schema": { "type": "integer" }, "description": "Away team score" },
+          { "name": "competition", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Competition name" },
+          { "name": "date", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Match date" }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI summary text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
