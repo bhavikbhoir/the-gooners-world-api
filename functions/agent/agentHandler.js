@@ -172,7 +172,8 @@ const ACTIONS = {
 // ── Lambda handler (Bedrock Agent Core format) ─────────────────────
 exports.handler = async (event) => {
   const actionGroup = event.actionGroup;
-  const action = event.function || event.apiPath;
+  const apiPath = event.apiPath;
+  const httpMethod = event.httpMethod;
   const params = {};
 
   // Extract parameters from Agent Core event
@@ -185,17 +186,20 @@ exports.handler = async (event) => {
     });
   }
 
-  const fn = ACTIONS[action];
+  // Map apiPath to action function (e.g. "/GetFixtures" → "GetFixtures")
+  const actionName = apiPath.replace(/^\//, '');
+  const fn = ACTIONS[actionName];
+
   if (!fn) {
     return {
       messageVersion: '1.0',
       response: {
         actionGroup,
-        function: action,
-        functionResponse: {
-          responseBody: {
-            'TEXT': { body: JSON.stringify({ error: `Unknown action: ${action}` }) },
-          },
+        apiPath,
+        httpMethod,
+        httpStatusCode: 400,
+        responseBody: {
+          'application/json': { body: JSON.stringify({ error: `Unknown action: ${apiPath}` }) },
         },
       },
     };
@@ -207,11 +211,11 @@ exports.handler = async (event) => {
       messageVersion: '1.0',
       response: {
         actionGroup,
-        function: action,
-        functionResponse: {
-          responseBody: {
-            'TEXT': { body: JSON.stringify(result) },
-          },
+        apiPath,
+        httpMethod,
+        httpStatusCode: 200,
+        responseBody: {
+          'application/json': { body: JSON.stringify(result) },
         },
       },
     };
@@ -220,11 +224,11 @@ exports.handler = async (event) => {
       messageVersion: '1.0',
       response: {
         actionGroup,
-        function: action,
-        functionResponse: {
-          responseBody: {
-            'TEXT': { body: JSON.stringify({ error: err.message }) },
-          },
+        apiPath,
+        httpMethod,
+        httpStatusCode: 500,
+        responseBody: {
+          'application/json': { body: JSON.stringify({ error: err.message }) },
         },
       },
     };
