@@ -76,25 +76,27 @@ async function getFixtures(params) {
   };
   const status = statusMap[type] || statusMap.upcoming;
 
-  // If specific competition requested, query just that
+  // If specific competition requested
   if (competition === 'CL' || competition === 'UCL' || competition === 'CHAMPIONS LEAGUE') {
     const data = await footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`);
     return { matches: formatMatches(data.matches) };
   }
 
   if (competition === 'PL' || competition === 'PREMIER LEAGUE') {
-    const data = await footballApi(`/teams/${ARSENAL_ID}/matches?competitions=PL&status=${status}&limit=${limit}`);
-    return { matches: formatMatches(data.matches) };
+    // Use general endpoint and filter — more reliable than competitions=PL
+    const data = await footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=20`);
+    const plOnly = (data.matches || []).filter(m => m.competition.code === 'PL').slice(0, limit);
+    return { matches: formatMatches(plOnly) };
   }
 
-  // Default: fetch PL + CL and merge
-  const [plData, clData] = await Promise.all([
+  // Default: use general endpoint (most reliable) + CL supplement
+  const [generalData, clData] = await Promise.all([
     footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=${limit}`),
     footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`),
   ]);
 
   const seen = new Set();
-  const allMatches = [...(plData.matches || []), ...(clData.matches || [])]
+  const allMatches = [...(generalData.matches || []), ...(clData.matches || [])]
     .filter((m) => {
       const key = `${m.utcDate}-${m.homeTeam.id}`;
       if (seen.has(key)) return false;
