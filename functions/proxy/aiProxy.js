@@ -65,21 +65,51 @@ ${data.recentForm}
 Respond in plain text only, no markdown.`;
       cache = 3600;
     } else if (type === 'summary') {
+      // Fetch standings context for richer summaries
+      let context = '';
+      try {
+        if (!data.competition || data.competition.includes('Premier League')) {
+          const standingsRes = await new Promise((resolve, reject) => {
+            const req = https.get('https://api.football-data.org/v4/competitions/PL/standings', {
+              headers: { 'X-Auth-Token': process.env.FOOTBALL_API_KEY }
+            }, (res) => {
+              let body = '';
+              res.on('data', c => body += c);
+              res.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve({}); } });
+            });
+            req.on('error', reject);
+            req.setTimeout(5000, () => { req.destroy(); reject(new Error('Timeout')); });
+          });
+          const table = standingsRes.standings?.[0]?.table || [];
+          const arsenal = table.find(t => t.team.id === 57);
+          const top3 = table.slice(0, 3).map(t => `${t.position}. ${t.team.shortName} ${t.points}pts`).join(', ');
+          if (arsenal) {
+            context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th`} with ${arsenal.points} points after ${arsenal.playedGames} games. Top 3: ${top3}.`;
+          }
+        } else if (data.competition.includes('Champions') || data.competition.includes('UEFA')) {
+          const arsenalAway = data.away === 'Arsenal';
+          context = data.stage ? `This is a ${data.stage} match.` : 'This is a Champions League knockout match.';
+          if (arsenalAway && data.homeScore === data.awayScore) {
+            context += ' An away draw in a CL knockout is a strong result heading into the home leg.';
+          }
+        }
+      } catch { /* continue without context */ }
+
       prompt = `You are an Arsenal FC match reporter writing for a fan site.
+
+CONTEXT: ${context || 'No additional context.'}
 
 TASK: Write exactly 2 sentences summarizing this match result for Arsenal fans.
 
 RULES:
 - Do NOT mention specific goalscorers, assists, or match events — you do not have that data
-- Only reference the final score, teams, competition, and result
-- Focus on what the result MEANS: league position impact, qualification implications, momentum
-- For Champions League: a draw can be a positive result if it secures qualification or progression
-- For Premier League: relate to title race, top 4, or relegation battle as appropriate
-- For FA Cup / Carabao Cup / other cups: focus on progression to next round
-- Be passionate but strictly factual about the score
+- Use the CONTEXT to explain what this result MEANS specifically
+- For Premier League: mention title race, points gap, games remaining
+- For Champions League knockouts: explain tie situation, home/away advantage, aggregate implications
+- Be passionate but specific — never use generic phrases like "keeping hopes alive"
 
 Match: ${data.home} ${data.homeScore} - ${data.awayScore} ${data.away}
-Competition: ${data.competition}
+Competition: ${data.competition}${data.stage ? ' — ' + data.stage : ''}
 Date: ${data.date}
 
 Respond in plain text only, no markdown.`;

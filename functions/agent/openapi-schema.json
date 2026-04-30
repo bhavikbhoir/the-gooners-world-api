@@ -293,7 +293,8 @@
           { "name": "homeScore", "in": "query", "required": true, "schema": { "type": "integer" }, "description": "Home team score" },
           { "name": "awayScore", "in": "query", "required": true, "schema": { "type": "integer" }, "description": "Away team score" },
           { "name": "competition", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Competition name" },
-          { "name": "date", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Match date" }
+          { "name": "date", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Match date" },
+          { "name": "stage", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Competition stage e.g. Semi-final, Quarter-final, Group Stage, Final. Include for Champions League matches." }
         ],
         "responses": {
           "200": {

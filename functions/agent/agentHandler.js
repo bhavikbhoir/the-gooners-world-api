@@ -200,13 +200,49 @@ Respond in plain text only.`;
 }
 
 async function getMatchSummary(params) {
-  const { home, away, homeScore, awayScore, competition, date } = params;
-  const prompt = `You are an Arsenal FC match reporter. Write exactly 2 sentences summarizing this result for Arsenal fans.
-Rules: Do NOT mention specific goalscorers. Focus on what the result means (league position, qualification, momentum).
+  const { home, away, homeScore, awayScore, competition, date, stage } = params;
+
+  // Fetch league context for richer summaries
+  let context = '';
+  try {
+    if (competition.includes('Premier League') || competition.includes('PL')) {
+      const standings = await footballApi('/competitions/PL/standings');
+      const table = standings.standings?.[0]?.table || [];
+      const arsenal = table.find(t => t.team.id === ARSENAL_ID);
+      const top3 = table.slice(0, 3).map(t => `${t.position}. ${t.team.shortName} ${t.points}pts`).join(', ');
+      if (arsenal) {
+        context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th in the league`} with ${arsenal.points} points after ${arsenal.playedGames} games. Top 3: ${top3}. ${table[0]?.points - arsenal.points <= 2 ? 'The title race is extremely tight.' : ''}`;
+      }
+    } else if (competition.includes('Champions League') || competition.includes('CL') || competition.includes('UEFA')) {
+      context = stage ? `This is a ${stage} match in the Champions League.` : 'This is a Champions League knockout match.';
+      // A draw away from home in CL knockouts is generally a good result
+      const arsenalAway = away === 'Arsenal';
+      if (arsenalAway && parseInt(homeScore) === parseInt(awayScore)) {
+        context += ' An away draw in a CL knockout tie is a strong result heading into the home leg.';
+      }
+    }
+  } catch { /* continue without context */ }
+
+  const prompt = `You are an Arsenal FC match reporter writing for a passionate fan site.
+
+CONTEXT: ${context || 'No additional context available.'}
+
+TASK: Write exactly 2 sentences summarizing this result for Arsenal fans.
+
+RULES:
+- Do NOT mention specific goalscorers — you do not have that data
+- Use the CONTEXT above to explain what this result MEANS: title race implications, knockout tie advantage, qualification impact
+- For Premier League: relate to title race, points gap, games remaining
+- For Champions League knockouts: explain the tie situation (home/away leg advantage, aggregate implications)
+- Be passionate but factual about the score
+- Never use generic phrases like "keeping hopes alive" — be SPECIFIC about the situation
+
 Match: ${home} ${homeScore} - ${awayScore} ${away}
-Competition: ${competition}
+Competition: ${competition}${stage ? ' — ' + stage : ''}
 Date: ${date}
+
 Respond in plain text only.`;
+
   const text = await callBedrock(prompt);
   return { summary: text };
 }
