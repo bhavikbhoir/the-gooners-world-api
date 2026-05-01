@@ -49,7 +49,7 @@ async function askBedrock(prompt) {
     body: JSON.stringify({
       anthropic_version: 'bedrock-2023-05-31',
       max_tokens: 400,
-      messages: [{ role: 'user', content: [{ text: prompt }] }],
+      messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
     }),
   }));
   const body = JSON.parse(new TextDecoder().decode(res.body));
