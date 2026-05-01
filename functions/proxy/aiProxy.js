@@ -8,7 +8,7 @@ async function callBedrock(prompt) {
   const client = new BedrockRuntimeClient({ region: REGION });
 
   const res = await client.send(new InvokeModelCommand({
-    modelId: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    modelId: 'anthropic.claude-haiku-4-5-20251001-v1:0',
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify({
