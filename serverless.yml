@@ -17,7 +17,8 @@ provider:
           Action:
             - bedrock:InvokeModel
           Resource:
-            - "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+            - "arn:aws:bedrock:*::foundation-model/*"
+            - "arn:aws:bedrock:*:*:inference-profile/*"
         - Effect: Allow
           Action:
             - bedrock:InvokeAgent
