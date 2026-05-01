@@ -39,20 +39,21 @@ function httpGet(url, headers = {}) {
 }
 
 // ── Bedrock helper ─────────────────────────────────────────────────
-async function callBedrock(prompt) {
+async function askBedrock(prompt) {
   const { BedrockRuntimeClient, InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
   const client = new BedrockRuntimeClient({ region: REGION });
   const res = await client.send(new InvokeModelCommand({
-    modelId: 'amazon.nova-micro-v1:0',
+    modelId: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify({
-      inferenceConfig: { maxTokens: 400 },
+      anthropic_version: 'bedrock-2023-05-31',
+      max_tokens: 400,
       messages: [{ role: 'user', content: [{ text: prompt }] }],
     }),
   }));
   const body = JSON.parse(new TextDecoder().decode(res.body));
-  return body.output?.message?.content?.[0]?.text || '';
+  return body.content?.[0]?.text || '';
 }
 
 // ── Football API helper ────────────────────────────────────────────
@@ -110,7 +111,8 @@ async function getFixtures(params) {
 }
 
 function formatMatches(matches) {
-  return (matches || []).map((m) => ({
+  return (matches || []).map((m, i) => ({
+    label: i === 0 ? 'NEXT MATCH' : `Match ${i + 1}`,
     home: m.homeTeam.shortName,
     away: m.awayTeam.shortName,
     date: m.utcDate,
@@ -197,7 +199,7 @@ Competition: ${competition}
 Date: ${date}
 Last 5 results (most recent first): ${recentForm}
 Respond in plain text only.`;
-  const text = await callBedrock(prompt);
+  const text = await askBedrock(prompt);
   return { prediction: text };
 }
 
@@ -245,7 +247,7 @@ Date: ${date}
 
 Respond in plain text only.`;
 
-  const text = await callBedrock(prompt);
+  const text = await askBedrock(prompt);
   return { summary: text };
 }
 
