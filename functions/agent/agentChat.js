@@ -31,6 +31,16 @@ function cors(origin) {
   return { 'Access-Control-Allow-Origin': allowed, 'Access-Control-Allow-Headers': 'Content-Type,x-api-key', 'Access-Control-Allow-Methods': 'POST,OPTIONS', 'Vary': 'Origin' };
 }
 
+// Strip Bedrock knowledge-base retrieval artifacts that can leak into
+// the agent's final response text (e.g. question="...", answer: ...)
+function sanitizeReply(text) {
+  const cleaned = text
+    .replace(/^question="[^"]*"\s*/gi, '')
+    .replace(/^answer:\s*/gi, '')
+    .trim();
+  return cleaned || "I couldn't find that information right now. Please try again.";
+}
+
 exports.handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin || '';
   const headers = cors(origin);
@@ -74,7 +84,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { ...headers, 'Cache-Control': 'no-cache' },
-      body: JSON.stringify({ reply: text, sessionId }),
+      body: JSON.stringify({ reply: sanitizeReply(text), sessionId }),
     };
   } catch (err) {
     console.error('Agent chat error:', err);

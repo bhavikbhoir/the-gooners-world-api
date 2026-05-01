@@ -10,9 +10,11 @@
  *   - GetStandings: Premier League table
  *   - GetLiveScore: current live match
  *   - GetSquad: Arsenal squad info
+ *   - GetScorers: top scorers (with Arsenal-specific filtering)
  *   - GetNews: latest Arsenal news
  *   - GetPrediction: AI match prediction
  *   - GetMatchSummary: AI post-match summary
+ *   - GetHeadToHead: Arsenal results vs a specific opponent
  */
 
 const https = require('https');
@@ -77,20 +79,17 @@ async function getFixtures(params) {
   };
   const status = statusMap[type] || statusMap.upcoming;
 
-  // If specific competition requested
   if (competition === 'CL' || competition === 'UCL' || competition === 'CHAMPIONS LEAGUE') {
     const data = await footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`);
     return { matches: formatMatches(data.matches) };
   }
 
   if (competition === 'PL' || competition === 'PREMIER LEAGUE') {
-    // Use general endpoint and filter — more reliable than competitions=PL
     const data = await footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=20`);
     const plOnly = (data.matches || []).filter(m => m.competition.code === 'PL').slice(0, limit);
     return { matches: formatMatches(plOnly) };
   }
 
-  // Default: use general endpoint (most reliable) + CL supplement
   const [generalData, clData] = await Promise.all([
     footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=${limit}`),
     footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`),
@@ -174,7 +173,17 @@ async function getScorers(params) {
     assists: s.assists,
     penalties: s.penalties,
   }));
-  return { competition: data.competition?.name, scorers };
+  // Surface Arsenal-specific scorers so the agent can directly answer
+  // "who is Arsenal's top scorer" without falling back to knowledge base
+  const arsenalScorers = scorers.filter((s) =>
+    s.team.toLowerCase().includes('arsenal')
+  );
+  return {
+    competition: data.competition?.name,
+    scorers,
+    arsenalTopScorer: arsenalScorers[0] || null,
+    arsenalScorers,
+  };
 }
 
 async function getNews() {
@@ -206,7 +215,6 @@ Respond in plain text only.`;
 async function getMatchSummary(params) {
   const { home, away, homeScore, awayScore, competition, date, stage } = params;
 
-  // Fetch league context for richer summaries
   let context = '';
   try {
     if (competition.includes('Premier League') || competition.includes('PL')) {
@@ -219,7 +227,6 @@ async function getMatchSummary(params) {
       }
     } else if (competition.includes('Champions League') || competition.includes('CL') || competition.includes('UEFA')) {
       context = stage ? `This is a ${stage} match in the Champions League.` : 'This is a Champions League knockout match.';
-      // A draw away from home in CL knockouts is generally a good result
       const arsenalAway = away === 'Arsenal';
       if (arsenalAway && parseInt(homeScore) === parseInt(awayScore)) {
         context += ' An away draw in a CL knockout tie is a strong result heading into the home leg.';
@@ -247,8 +254,35 @@ Date: ${date}
 
 Respond in plain text only.`;
 
-  const text = await askBedrock(prompt);
-  return { summary: text };
+  try {
+    const text = await askBedrock(prompt);
+    return { summary: text };
+  } catch {
+    // Return a plain factual summary if the AI call fails rather than crashing
+    const arsenalScore = home === 'Arsenal' || home.includes('Arsenal') ? homeScore : awayScore;
+    const oppScore = home === 'Arsenal' || home.includes('Arsenal') ? awayScore : homeScore;
+    const result = arsenalScore > oppScore ? 'won' : arsenalScore < oppScore ? 'lost' : 'drew';
+    return {
+      summary: `Arsenal ${result} ${home} ${homeScore}-${awayScore} ${away} in the ${competition}${stage ? ` (${stage})` : ''} on ${date}.`,
+    };
+  }
+}
+
+async function getHeadToHead(params) {
+  const opponent = (params.opponent || '').toLowerCase().trim();
+  if (!opponent) return { matches: [], message: 'Please specify an opponent team name.' };
+
+  const data = await footballApi(`/teams/${ARSENAL_ID}/matches?status=FINISHED&limit=38`);
+  const matches = (data.matches || []).filter((m) => {
+    const home = `${m.homeTeam.name} ${m.homeTeam.shortName}`.toLowerCase();
+    const away = `${m.awayTeam.name} ${m.awayTeam.shortName}`.toLowerCase();
+    return home.includes(opponent) || away.includes(opponent);
+  });
+
+  if (!matches.length) {
+    return { matches: [], message: `No finished matches found against "${params.opponent}" this season.` };
+  }
+  return { matches: formatMatches(matches) };
 }
 
 // ── Action router ──────────────────────────────────────────────────
@@ -261,6 +295,7 @@ const ACTIONS = {
   GetNews: getNews,
   GetPrediction: getPrediction,
   GetMatchSummary: getMatchSummary,
+  GetHeadToHead: getHeadToHead,
 };
 
 // ── Lambda handler (Bedrock Agent Core format) ─────────────────────
@@ -270,7 +305,6 @@ exports.handler = async (event) => {
   const httpMethod = event.httpMethod;
   const params = {};
 
-  // Extract parameters from Agent Core event
   if (event.parameters) {
     event.parameters.forEach((p) => { params[p.name] = p.value; });
   }
@@ -280,7 +314,6 @@ exports.handler = async (event) => {
     });
   }
 
-  // Map apiPath to action function (e.g. "/GetFixtures" → "GetFixtures")
   const actionName = apiPath.replace(/^\//, '');
   const fn = ACTIONS[actionName];
 

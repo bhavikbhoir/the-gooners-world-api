@@ -178,8 +178,8 @@
     "/GetScorers": {
       "get": {
         "operationId": "GetScorers",
-        "summary": "Get top scorers in a league",
-        "description": "Returns the top 20 goal scorers in a competition with goals, assists, and penalties. Use this when the user asks about top scorers, golden boot, who has the most goals, or Arsenal's top scorer.",
+        "summary": "Get top scorers in a league, including Arsenal's top scorer",
+        "description": "Returns the top 20 goal scorers in a competition with goals, assists, and penalties. Also returns arsenalTopScorer and arsenalScorers fields filtered to Arsenal players only. Use this when the user asks about top scorers, golden boot, who has the most goals, Arsenal's top scorer, or who is scoring for Arsenal.",
         "parameters": [
           {
             "name": "league",
@@ -191,13 +191,39 @@
         ],
         "responses": {
           "200": {
-            "description": "Top scorers list",
+            "description": "Top scorers list with Arsenal-specific filtering",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "competition": { "type": "string" },
+                    "arsenalTopScorer": {
+                      "description": "Arsenal's highest-placed scorer in this competition, or null if none in top 20",
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "player": { "type": "string" },
+                        "team": { "type": "string" },
+                        "goals": { "type": "integer" },
+                        "assists": { "type": "integer" },
+                        "penalties": { "type": "integer" }
+                      }
+                    },
+                    "arsenalScorers": {
+                      "description": "All Arsenal players in the top 20 scorers list",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "player": { "type": "string" },
+                          "team": { "type": "string" },
+                          "goals": { "type": "integer" },
+                          "assists": { "type": "integer" },
+                          "penalties": { "type": "integer" }
+                        }
+                      }
+                    },
                     "scorers": {
                       "type": "array",
                       "items": {
@@ -305,6 +331,51 @@
                   "type": "object",
                   "properties": {
                     "summary": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/GetHeadToHead": {
+      "get": {
+        "operationId": "GetHeadToHead",
+        "summary": "Get Arsenal's results against a specific opponent this season",
+        "description": "Returns all finished Arsenal matches against a specific opponent this season, with scores and competition. Use this when the user asks how Arsenal did against a specific team, for head-to-head records, or 'how did we do vs X'.",
+        "parameters": [
+          {
+            "name": "opponent",
+            "in": "query",
+            "description": "Opponent team name or partial name (e.g. 'Manchester City', 'Man City', 'Chelsea', 'Atletico')",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Head-to-head results against the specified opponent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "home": { "type": "string" },
+                          "away": { "type": "string" },
+                          "date": { "type": "string" },
+                          "status": { "type": "string" },
+                          "score": { "type": "string" },
+                          "competition": { "type": "string" }
+                        }
+                      }
+                    },
+                    "message": { "type": "string" }
                   }
                 }
               }
