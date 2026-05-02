@@ -1,25 +1,24 @@
 /**
  * Bedrock Agent Core — Action Group Handler
  *
- * This Lambda is invoked by Bedrock Agent Core when the agent decides
- * to use one of our tools. The agent autonomously picks which action
- * to call based on the user's question.
+ * Invoked by the Bedrock Agent (Claude Sonnet) when it selects a tool.
+ * Each action returns structured raw data — Sonnet synthesises the final response.
  *
  * Action Groups:
- *   - GetFixtures: upcoming/recent Arsenal matches
- *   - GetStandings: Premier League table
- *   - GetLiveScore: current live match
- *   - GetSquad: Arsenal squad info
- *   - GetNews: latest Arsenal news
- *   - GetPrediction: AI match prediction
- *   - GetMatchSummary: AI post-match summary
+ *   - GetFixtures      upcoming/recent Arsenal matches across all competitions
+ *   - GetStandings     Premier League or Champions League table
+ *   - GetScorers       top scorers in a competition
+ *   - GetLiveScore     current live match score
+ *   - GetSquad         Arsenal squad and coach
+ *   - GetNews          latest Arsenal news headlines
+ *   - GetPrediction    upcoming match data + recent form for Sonnet to predict
+ *   - GetMatchSummary  completed match result + standings context for Sonnet to summarise
  */
 
 const https = require('https');
 
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
-const REGION = process.env.AWS_REGION || 'us-east-1';
 const ARSENAL_ID = 57;
 
 // ── HTTP helper ────────────────────────────────────────────────────
@@ -38,35 +37,14 @@ function httpGet(url, headers = {}) {
   });
 }
 
-// ── Bedrock helper ─────────────────────────────────────────────────
-async function askBedrock(prompt) {
-  const { BedrockRuntimeClient, InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
-  const client = new BedrockRuntimeClient({ region: REGION });
-  const res = await client.send(new InvokeModelCommand({
-    modelId: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-    contentType: 'application/json',
-    accept: 'application/json',
-    body: JSON.stringify({
-      anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: 400,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
-    }),
-  }));
-  const body = JSON.parse(new TextDecoder().decode(res.body));
-  return body.content?.[0]?.text || '';
-}
-
-// ── Football API helper ────────────────────────────────────────────
 function footballApi(path) {
-  return httpGet(`https://api.football-data.org/v4${path}`, {
-    'X-Auth-Token': FOOTBALL_API_KEY,
-  });
+  return httpGet(`https://api.football-data.org/v4${path}`, { 'X-Auth-Token': FOOTBALL_API_KEY });
 }
 
 // ── Action implementations ─────────────────────────────────────────
 
 async function getFixtures(params) {
-  const limit = params.limit || 10;
+  const limit = parseInt(params.limit) || 10;
   const type = params.type || 'upcoming';
   const competition = (params.competition || '').toUpperCase();
 
@@ -77,26 +55,27 @@ async function getFixtures(params) {
   };
   const status = statusMap[type] || statusMap.upcoming;
 
-  // If specific competition requested
   if (competition === 'CL' || competition === 'UCL' || competition === 'CHAMPIONS LEAGUE') {
     const data = await footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`);
-    return { matches: formatMatches(data.matches) };
+    return { matches: formatMatches(data.matches, type) };
   }
 
   if (competition === 'PL' || competition === 'PREMIER LEAGUE') {
-    // Use general endpoint and filter — more reliable than competitions=PL
     const data = await footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=20`);
     const plOnly = (data.matches || []).filter(m => m.competition.code === 'PL').slice(0, limit);
-    return { matches: formatMatches(plOnly) };
+    return { matches: formatMatches(plOnly, type) };
   }
 
-  // Default: use general endpoint (most reliable) + CL supplement
   const [generalData, clData] = await Promise.all([
     footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=${limit}`),
     footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`),
   ]);
 
   const seen = new Set();
+  const sortFn = type === 'recent'
+    ? (a, b) => new Date(b.utcDate) - new Date(a.utcDate)
+    : (a, b) => new Date(a.utcDate) - new Date(b.utcDate);
+
   const allMatches = [...(generalData.matches || []), ...(clData.matches || [])]
     .filter((m) => {
       const key = `${m.utcDate}-${m.homeTeam.id}`;
@@ -104,26 +83,27 @@ async function getFixtures(params) {
       seen.add(key);
       return true;
     })
-    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))
+    .sort(sortFn)
     .slice(0, limit);
 
-  return { matches: formatMatches(allMatches) };
+  return { matches: formatMatches(allMatches, type) };
 }
 
-function formatMatches(matches) {
+function formatMatches(matches, type) {
   return (matches || []).map((m, i) => ({
-    label: i === 0 ? 'NEXT MATCH' : `Match ${i + 1}`,
+    label: type === 'upcoming' && i === 0 ? 'NEXT MATCH' : `Match ${i + 1}`,
     home: m.homeTeam.shortName,
     away: m.awayTeam.shortName,
     date: m.utcDate,
     status: m.status,
     score: m.score?.fullTime?.home != null ? `${m.score.fullTime.home}-${m.score.fullTime.away}` : null,
     competition: m.competition.name,
+    stage: m.stage || null,
   }));
 }
 
 async function getStandings(params) {
-  const league = params.league || 'PL';
+  const league = (params.league || 'PL').toUpperCase();
   const data = await footballApi(`/competitions/${league}/standings`);
   const table = (data.standings?.[0]?.table || []).map((t) => ({
     position: t.position,
@@ -135,7 +115,22 @@ async function getStandings(params) {
     points: t.points,
     gd: t.goalDifference,
   }));
-  return { league: data.competition?.name, table };
+  const arsenal = table.find(t => t.team === 'Arsenal');
+  return { league: data.competition?.name, table, arsenalPosition: arsenal?.position };
+}
+
+async function getScorers(params) {
+  const league = (params.league || 'PL').toUpperCase();
+  const data = await footballApi(`/competitions/${league}/scorers?limit=20`);
+  const scorers = (data.scorers || []).map((s) => ({
+    player: s.player.name,
+    team: s.team.shortName,
+    goals: s.goals,
+    assists: s.assists || 0,
+    penalties: s.penalties || 0,
+  }));
+  const arsenalTop = scorers.find(s => s.team === 'Arsenal');
+  return { competition: data.competition?.name, scorers, arsenalTopScorer: arsenalTop || null };
 }
 
 async function getLiveScore() {
@@ -148,7 +143,7 @@ async function getLiveScore() {
     away: m.awayTeam.shortName,
     homeScore: m.score?.fullTime?.home ?? m.score?.halfTime?.home ?? 0,
     awayScore: m.score?.fullTime?.away ?? m.score?.halfTime?.away ?? 0,
-    minute: m.minute,
+    minute: m.minute || null,
     competition: m.competition.name,
   };
 }
@@ -164,19 +159,6 @@ async function getSquad() {
   return { team: data.name, coach: data.coach?.name, squad };
 }
 
-async function getScorers(params) {
-  const league = params.league || 'PL';
-  const data = await footballApi(`/competitions/${league}/scorers?limit=20`);
-  const scorers = (data.scorers || []).map((s) => ({
-    player: s.player.name,
-    team: s.team.shortName,
-    goals: s.goals,
-    assists: s.assists,
-    penalties: s.penalties,
-  }));
-  return { competition: data.competition?.name, scorers };
-}
-
 async function getNews() {
   const url = `https://newsdata.io/api/1/latest?apikey=${NEWS_API_KEY}&q=%22Arsenal%20FC%22%20OR%20%22Arsenal%20Football%20Club%22&category=sports&language=en&size=5`;
   const data = await httpGet(url);
@@ -185,79 +167,86 @@ async function getNews() {
     description: a.description?.slice(0, 200),
     source: a.source_name,
     date: a.pubDate,
-    link: a.link,
   }));
   return { articles };
 }
 
 async function getPrediction(params) {
-  const { home, away, competition, date, recentForm } = params;
-  const prompt = `You are an Arsenal FC football analyst. Write a 3-4 sentence match prediction with a predicted score and win/draw/loss percentage.
-Rules: Write in third person. Be realistic based on form. Most recent result is listed first.
-Next match: ${home} vs ${away}
-Competition: ${competition}
-Date: ${date}
-Last 5 results (most recent first): ${recentForm}
-Respond in plain text only.`;
-  const text = await askBedrock(prompt);
-  return { prediction: text };
+  // Returns structured match data for Sonnet to reason over and predict
+  const [upcomingData, recentData] = await Promise.all([
+    footballApi(`/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED&limit=3`),
+    footballApi(`/teams/${ARSENAL_ID}/matches?status=FINISHED&limit=5`),
+  ]);
+
+  const upcoming = (upcomingData.matches || [])[0];
+  if (!upcoming) return { error: 'No upcoming match found.' };
+
+  const recentForm = (recentData.matches || []).map(m => {
+    const isHome = m.homeTeam.id === ARSENAL_ID;
+    const gs = isHome ? m.score?.fullTime?.home : m.score?.fullTime?.away;
+    const gc = isHome ? m.score?.fullTime?.away : m.score?.fullTime?.home;
+    const result = gs > gc ? 'W' : gs < gc ? 'L' : 'D';
+    return `${result} ${m.homeTeam.shortName} ${m.score?.fullTime?.home}-${m.score?.fullTime?.away} ${m.awayTeam.shortName} (${m.competition.name})`;
+  });
+
+  return {
+    nextMatch: {
+      home: upcoming.homeTeam.shortName,
+      away: upcoming.awayTeam.shortName,
+      date: upcoming.utcDate,
+      competition: upcoming.competition.name,
+      stage: upcoming.stage || null,
+    },
+    arsenalRecentForm: recentForm,
+  };
 }
 
 async function getMatchSummary(params) {
-  const { home, away, homeScore, awayScore, competition, date, stage } = params;
+  // Returns match result + league context for Sonnet to summarise
+  const [recentData, standingsData] = await Promise.all([
+    footballApi(`/teams/${ARSENAL_ID}/matches?status=FINISHED&limit=5`),
+    footballApi('/competitions/PL/standings').catch(() => null),
+  ]);
 
-  // Fetch league context for richer summaries
-  let context = '';
-  try {
-    if (competition.includes('Premier League') || competition.includes('PL')) {
-      const standings = await footballApi('/competitions/PL/standings');
-      const table = standings.standings?.[0]?.table || [];
-      const arsenal = table.find(t => t.team.id === ARSENAL_ID);
-      const top3 = table.slice(0, 3).map(t => `${t.position}. ${t.team.shortName} ${t.points}pts`).join(', ');
-      if (arsenal) {
-        context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th in the league`} with ${arsenal.points} points after ${arsenal.playedGames} games. Top 3: ${top3}. ${table[0]?.points - arsenal.points <= 2 ? 'The title race is extremely tight.' : ''}`;
-      }
-    } else if (competition.includes('Champions League') || competition.includes('CL') || competition.includes('UEFA')) {
-      context = stage ? `This is a ${stage} match in the Champions League.` : 'This is a Champions League knockout match.';
-      // A draw away from home in CL knockouts is generally a good result
-      const arsenalAway = away === 'Arsenal';
-      if (arsenalAway && parseInt(homeScore) === parseInt(awayScore)) {
-        context += ' An away draw in a CL knockout tie is a strong result heading into the home leg.';
-      }
+  const matches = recentData.matches || [];
+  const match = matches[0];
+  if (!match) return { error: 'No recent match found.' };
+
+  let arsenalStandings = null;
+  if (standingsData) {
+    const table = standingsData.standings?.[0]?.table || [];
+    const entry = table.find(t => t.team.id === ARSENAL_ID);
+    if (entry) {
+      arsenalStandings = {
+        position: entry.position,
+        points: entry.points,
+        played: entry.playedGames,
+        pointsFromTop: table[0].points - entry.points,
+      };
     }
-  } catch { /* continue without context */ }
+  }
 
-  const prompt = `You are an Arsenal FC match reporter writing for a passionate fan site.
-
-CONTEXT: ${context || 'No additional context available.'}
-
-TASK: Write exactly 2 sentences summarizing this result for Arsenal fans.
-
-RULES:
-- Do NOT mention specific goalscorers — you do not have that data
-- Use the CONTEXT above to explain what this result MEANS: title race implications, knockout tie advantage, qualification impact
-- For Premier League: relate to title race, points gap, games remaining
-- For Champions League knockouts: explain the tie situation (home/away leg advantage, aggregate implications)
-- Be passionate but factual about the score
-- Never use generic phrases like "keeping hopes alive" — be SPECIFIC about the situation
-
-Match: ${home} ${homeScore} - ${awayScore} ${away}
-Competition: ${competition}${stage ? ' — ' + stage : ''}
-Date: ${date}
-
-Respond in plain text only.`;
-
-  const text = await askBedrock(prompt);
-  return { summary: text };
+  return {
+    result: {
+      home: match.homeTeam.shortName,
+      away: match.awayTeam.shortName,
+      homeScore: match.score?.fullTime?.home,
+      awayScore: match.score?.fullTime?.away,
+      competition: match.competition.name,
+      stage: match.stage || null,
+      date: match.utcDate,
+    },
+    arsenalStandings,
+  };
 }
 
 // ── Action router ──────────────────────────────────────────────────
 const ACTIONS = {
   GetFixtures: getFixtures,
   GetStandings: getStandings,
+  GetScorers: getScorers,
   GetLiveScore: getLiveScore,
   GetSquad: getSquad,
-  GetScorers: getScorers,
   GetNews: getNews,
   GetPrediction: getPrediction,
   GetMatchSummary: getMatchSummary,
@@ -270,7 +259,6 @@ exports.handler = async (event) => {
   const httpMethod = event.httpMethod;
   const params = {};
 
-  // Extract parameters from Agent Core event
   if (event.parameters) {
     event.parameters.forEach((p) => { params[p.name] = p.value; });
   }
@@ -280,7 +268,6 @@ exports.handler = async (event) => {
     });
   }
 
-  // Map apiPath to action function (e.g. "/GetFixtures" → "GetFixtures")
   const actionName = apiPath.replace(/^\//, '');
   const fn = ACTIONS[actionName];
 
@@ -288,13 +275,9 @@ exports.handler = async (event) => {
     return {
       messageVersion: '1.0',
       response: {
-        actionGroup,
-        apiPath,
-        httpMethod,
+        actionGroup, apiPath, httpMethod,
         httpStatusCode: 400,
-        responseBody: {
-          'application/json': { body: JSON.stringify({ error: `Unknown action: ${apiPath}` }) },
-        },
+        responseBody: { 'application/json': { body: JSON.stringify({ error: `Unknown action: ${apiPath}` }) } },
       },
     };
   }
@@ -304,26 +287,19 @@ exports.handler = async (event) => {
     return {
       messageVersion: '1.0',
       response: {
-        actionGroup,
-        apiPath,
-        httpMethod,
+        actionGroup, apiPath, httpMethod,
         httpStatusCode: 200,
-        responseBody: {
-          'application/json': { body: JSON.stringify(result) },
-        },
+        responseBody: { 'application/json': { body: JSON.stringify(result) } },
       },
     };
   } catch (err) {
+    console.error(`Action ${actionName} error:`, err);
     return {
       messageVersion: '1.0',
       response: {
-        actionGroup,
-        apiPath,
-        httpMethod,
+        actionGroup, apiPath, httpMethod,
         httpStatusCode: 500,
-        responseBody: {
-          'application/json': { body: JSON.stringify({ error: err.message }) },
-        },
+        responseBody: { 'application/json': { body: JSON.stringify({ error: err.message }) } },
       },
     };
   }

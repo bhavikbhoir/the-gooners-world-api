@@ -71,13 +71,11 @@ functions:
           cors: true
           private: true
 
-  # Bedrock Agent Core — action group handler
   agentHandler:
     handler: functions/agent/agentHandler.handler
-    timeout: 30
-    description: Bedrock Agent Core action group handler for Arsenal FC Assistant
+    timeout: 29
+    description: Bedrock Agent Core action group handler — Arsenal FC data tools
 
-  # Agent chat endpoint — invoked by frontend chat widget
   agentChat:
     handler: functions/agent/agentChat.handler
     timeout: 30
