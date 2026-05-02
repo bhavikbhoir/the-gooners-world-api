@@ -46,7 +46,6 @@ function footballApi(path) {
 async function getFixtures(params) {
   const limit = parseInt(params.limit) || 10;
   const type = params.type || 'upcoming';
-  const competition = (params.competition || '').toUpperCase();
 
   const statusMap = {
     upcoming: 'SCHEDULED,TIMED',
@@ -55,20 +54,13 @@ async function getFixtures(params) {
   };
   const status = statusMap[type] || statusMap.upcoming;
 
-  if (competition === 'CL' || competition === 'UCL' || competition === 'CHAMPIONS LEAGUE') {
-    const data = await footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`);
-    return { matches: formatMatches(data.matches, type) };
-  }
-
-  if (competition === 'PL' || competition === 'PREMIER LEAGUE') {
-    const data = await footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=20`);
-    const plOnly = (data.matches || []).filter(m => m.competition.code === 'PL').slice(0, limit);
-    return { matches: formatMatches(plOnly, type) };
-  }
-
+  // Always return all competitions sorted chronologically — never filter
+  // by competition here. The agent reads the competition field per match
+  // and can answer competition-specific questions from the full sorted list.
+  // This ensures the chronologically nearest match is always first.
   const [generalData, clData] = await Promise.all([
-    footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=${limit}`),
-    footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=${limit}`),
+    footballApi(`/teams/${ARSENAL_ID}/matches?status=${status}&limit=20`),
+    footballApi(`/teams/${ARSENAL_ID}/matches?competitions=CL&status=${status}&limit=10`),
   ]);
 
   const seen = new Set();
@@ -269,6 +261,7 @@ exports.handler = async (event) => {
   }
 
   const actionName = apiPath.replace(/^\//, '');
+  console.log(`Agent tool call: ${actionName}`, JSON.stringify(params));
   const fn = ACTIONS[actionName];
 
   if (!fn) {
