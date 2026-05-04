@@ -273,19 +273,19 @@
     "/GetMatchSummary": {
       "get": {
         "operationId": "GetMatchSummary",
-        "summary": "Get the most recent Arsenal match result with standings context",
-        "description": "Returns the latest completed match result plus current PL standings including exact games remaining per team. Use top5Standings.gamesRemaining when mentioning remaining games — never estimate.",
+        "summary": "Get the most recent Arsenal match result with competition-aware context",
+        "description": "Returns the latest completed match result with context tailored to the competition. For PL matches: leagueContext includes position, points, and emphasiseGamesRemaining (true only in the final 8 games when in title contention — otherwise focus on points/position only). For CL matches: competitionContext includes stage and knockout tie context. Cup matches return result only.",
         "responses": {
           "200": {
-            "description": "Match result and standings context",
+            "description": "Match result with competition-aware context",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "result": { "type": "object" },
-                    "arsenalStandings": { "type": "object", "nullable": true },
-                    "top5Standings": { "type": "array", "items": { "type": "object" }, "description": "Top 5 teams with exact gamesRemaining per team" }
+                    "result": { "type": "object", "description": "Match result with home, away, scores, competition, stage, date" },
+                    "leagueContext": { "type": "object", "nullable": true, "description": "PL context: position, points, gamesRemaining, emphasiseGamesRemaining, top5" },
+                    "competitionContext": { "type": "object", "nullable": true, "description": "CL context: stage, isKnockout, awayDraw" }
                   }
                 }
               }

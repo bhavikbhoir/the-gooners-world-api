@@ -82,11 +82,16 @@ Respond in plain text only, no markdown.`;
           });
           const table = standingsRes.standings?.[0]?.table || [];
           const arsenal = table.find(t => t.team.id === 57);
-          const top5 = table.slice(0, 5).map(t =>
-            `${t.position}. ${t.team.shortName} ${t.points}pts (played ${t.playedGames}, ${38 - t.playedGames} remaining)`
-          ).join(', ');
           if (arsenal) {
-            context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th`} with ${arsenal.points} points after ${arsenal.playedGames} games (${38 - arsenal.playedGames} remaining). Top 5: ${top5}.`;
+            const gamesRemaining = 38 - arsenal.playedGames;
+            const emphasiseGamesRemaining =
+              gamesRemaining <= 8 &&
+              arsenal.position <= 3 &&
+              (table[0].points - arsenal.points) <= 8;
+            const top5 = table.slice(0, 5).map(t =>
+              `${t.position}. ${t.team.shortName} ${t.points}pts (played ${t.playedGames}, ${38 - t.playedGames} remaining)`
+            ).join(', ');
+            context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th`} with ${arsenal.points} points after ${arsenal.playedGames} games (${gamesRemaining} remaining). Top 5: ${top5}. emphasiseGamesRemaining: ${emphasiseGamesRemaining}.`;
           }
         } else if (data.competition.includes('Champions') || data.competition.includes('UEFA')) {
           const arsenalAway = data.away === 'Arsenal';
@@ -106,7 +111,7 @@ TASK: Write exactly 2 sentences summarizing this match result for Arsenal fans.
 RULES:
 - Do NOT mention specific goalscorers, assists, or match events — you do not have that data
 - Use the CONTEXT to explain what this result MEANS specifically
-- For Premier League: mention title race, points gap, games remaining
+- For Premier League: focus on points gap and position. Only mention games remaining if CONTEXT shows emphasiseGamesRemaining is true (run-in + title race) — early/mid season just reference points and position
 - For Champions League knockouts: explain tie situation, home/away advantage, aggregate implications
 - Be passionate but specific — never use generic phrases like "keeping hopes alive"
 - When stating games remaining for ANY team, ONLY use the exact figures from CONTEXT — never estimate or invent
