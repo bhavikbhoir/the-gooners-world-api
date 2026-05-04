@@ -66,7 +66,6 @@ ${data.recentForm}
 Respond in plain text only, no markdown.`;
       cache = 3600;
     } else if (type === 'summary') {
-      // Fetch standings context for richer summaries
       let context = '';
       try {
         if (!data.competition || data.competition.includes('Premier League')) {
@@ -83,9 +82,11 @@ Respond in plain text only, no markdown.`;
           });
           const table = standingsRes.standings?.[0]?.table || [];
           const arsenal = table.find(t => t.team.id === 57);
-          const top3 = table.slice(0, 3).map(t => `${t.position}. ${t.team.shortName} ${t.points}pts`).join(', ');
+          const top5 = table.slice(0, 5).map(t =>
+            `${t.position}. ${t.team.shortName} ${t.points}pts (played ${t.playedGames}, ${38 - t.playedGames} remaining)`
+          ).join(', ');
           if (arsenal) {
-            context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th`} with ${arsenal.points} points after ${arsenal.playedGames} games. Top 3: ${top3}.`;
+            context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th`} with ${arsenal.points} points after ${arsenal.playedGames} games (${38 - arsenal.playedGames} remaining). Top 5: ${top5}.`;
           }
         } else if (data.competition.includes('Champions') || data.competition.includes('UEFA')) {
           const arsenalAway = data.away === 'Arsenal';
@@ -108,6 +109,7 @@ RULES:
 - For Premier League: mention title race, points gap, games remaining
 - For Champions League knockouts: explain tie situation, home/away advantage, aggregate implications
 - Be passionate but specific — never use generic phrases like "keeping hopes alive"
+- When stating games remaining for ANY team, ONLY use the exact figures from CONTEXT — never estimate or invent
 
 Match: ${data.home} ${data.homeScore} - ${data.awayScore} ${data.away}
 Competition: ${data.competition}${data.stage ? ' — ' + data.stage : ''}

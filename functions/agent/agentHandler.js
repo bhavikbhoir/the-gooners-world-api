@@ -1,10 +1,6 @@
 /**
  * Bedrock Agent Core — Action Group Handler
  *
- * This Lambda is invoked by Bedrock Agent Core when the agent decides
- * to use one of our tools. The agent autonomously picks which action
- * to call based on the user's question.
- *
  * Action Groups:
  *   - GetFixtures: upcoming/recent Arsenal matches
  *   - GetStandings: Premier League table
@@ -24,7 +20,6 @@ const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const ARSENAL_ID = 57;
 
-// ── HTTP helper ────────────────────────────────────────────────────
 function httpGet(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers }, (res) => {
@@ -40,7 +35,6 @@ function httpGet(url, headers = {}) {
   });
 }
 
-// ── Bedrock helper ─────────────────────────────────────────────────
 async function askBedrock(prompt) {
   const { BedrockRuntimeClient, InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
   const client = new BedrockRuntimeClient({ region: REGION });
@@ -58,14 +52,11 @@ async function askBedrock(prompt) {
   return body.content?.[0]?.text || '';
 }
 
-// ── Football API helper ────────────────────────────────────────────
 function footballApi(path) {
   return httpGet(`https://api.football-data.org/v4${path}`, {
     'X-Auth-Token': FOOTBALL_API_KEY,
   });
 }
-
-// ── Action implementations ─────────────────────────────────────────
 
 async function getFixtures(params) {
   const limit = params.limit || 10;
@@ -173,8 +164,6 @@ async function getScorers(params) {
     assists: s.assists,
     penalties: s.penalties,
   }));
-  // Surface Arsenal-specific scorers so the agent can directly answer
-  // "who is Arsenal's top scorer" without falling back to knowledge base
   const arsenalScorers = scorers.filter((s) =>
     s.team.toLowerCase().includes('arsenal')
   );
@@ -221,9 +210,11 @@ async function getMatchSummary(params) {
       const standings = await footballApi('/competitions/PL/standings');
       const table = standings.standings?.[0]?.table || [];
       const arsenal = table.find(t => t.team.id === ARSENAL_ID);
-      const top3 = table.slice(0, 3).map(t => `${t.position}. ${t.team.shortName} ${t.points}pts`).join(', ');
+      const top5 = table.slice(0, 5).map(t =>
+        `${t.position}. ${t.team.shortName} ${t.points}pts (played ${t.playedGames}, ${38 - t.playedGames} remaining)`
+      ).join(', ');
       if (arsenal) {
-        context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th in the league`} with ${arsenal.points} points after ${arsenal.playedGames} games. Top 3: ${top3}. ${table[0]?.points - arsenal.points <= 2 ? 'The title race is extremely tight.' : ''}`;
+        context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th in the league`} with ${arsenal.points} points after ${arsenal.playedGames} games (${38 - arsenal.playedGames} remaining). Top 5: ${top5}. ${table[0]?.points - arsenal.points <= 2 ? 'The title race is extremely tight.' : ''}`;
       }
     } else if (competition.includes('Champions League') || competition.includes('CL') || competition.includes('UEFA')) {
       context = stage ? `This is a ${stage} match in the Champions League.` : 'This is a Champions League knockout match.';
@@ -247,6 +238,7 @@ RULES:
 - For Champions League knockouts: explain the tie situation (home/away leg advantage, aggregate implications)
 - Be passionate but factual about the score
 - Never use generic phrases like "keeping hopes alive" — be SPECIFIC about the situation
+- When stating games remaining for ANY team, ONLY use the exact figures from CONTEXT — never estimate or invent
 
 Match: ${home} ${homeScore} - ${awayScore} ${away}
 Competition: ${competition}${stage ? ' — ' + stage : ''}
@@ -258,7 +250,6 @@ Respond in plain text only.`;
     const text = await askBedrock(prompt);
     return { summary: text };
   } catch {
-    // Return a plain factual summary if the AI call fails rather than crashing
     const arsenalScore = home === 'Arsenal' || home.includes('Arsenal') ? homeScore : awayScore;
     const oppScore = home === 'Arsenal' || home.includes('Arsenal') ? awayScore : homeScore;
     const result = arsenalScore > oppScore ? 'won' : arsenalScore < oppScore ? 'lost' : 'drew';
@@ -285,7 +276,6 @@ async function getHeadToHead(params) {
   return { matches: formatMatches(matches) };
 }
 
-// ── Action router ──────────────────────────────────────────────────
 const ACTIONS = {
   GetFixtures: getFixtures,
   GetStandings: getStandings,
@@ -298,7 +288,6 @@ const ACTIONS = {
   GetHeadToHead: getHeadToHead,
 };
 
-// ── Lambda handler (Bedrock Agent Core format) ─────────────────────
 exports.handler = async (event) => {
   const actionGroup = event.actionGroup;
   const apiPath = event.apiPath;
