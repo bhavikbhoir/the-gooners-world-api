@@ -10,7 +10,7 @@
       "get": {
         "operationId": "GetFixtures",
         "summary": "Get Arsenal's upcoming and recent match fixtures with scores",
-        "description": "Returns Arsenal FC's scheduled, live, and completed matches including opponent, date, score, and competition. Use this when the user asks about upcoming matches, recent results, or fixture schedule. IMPORTANT: When user asks about the 'next match', use type=upcoming with limit=3 to get the nearest upcoming matches.",
+        "description": "Returns Arsenal FC's scheduled and completed matches across ALL competitions, sorted chronologically. The first result is always the chronologically nearest match. Each match includes the competition name so you can answer competition-specific questions from the full list. Use type=upcoming for next matches, type=recent for past results.",
         "parameters": [
           {
             "name": "limit",
@@ -22,16 +22,9 @@
           {
             "name": "type",
             "in": "query",
-            "description": "Filter type: 'upcoming' for scheduled/timed matches only, 'recent' for finished matches only, 'all' for both. Use 'upcoming' when user asks about next match.",
+            "description": "Filter type: 'upcoming' for scheduled/timed matches only, 'recent' for finished matches only, 'all' for both.",
             "required": false,
             "schema": { "type": "string", "default": "upcoming", "enum": ["upcoming", "recent", "all"] }
-          },
-          {
-            "name": "competition",
-            "in": "query",
-            "description": "Filter by competition: 'PL' for Premier League, 'CL' for Champions League. Leave empty for all competitions.",
-            "required": false,
-            "schema": { "type": "string" }
           }
         ],
         "responses": {
@@ -178,8 +171,8 @@
     "/GetScorers": {
       "get": {
         "operationId": "GetScorers",
-        "summary": "Get top scorers in a league, including Arsenal's top scorer",
-        "description": "Returns the top 20 goal scorers in a competition with goals, assists, and penalties. Also returns arsenalTopScorer and arsenalScorers fields filtered to Arsenal players only. Use this when the user asks about top scorers, golden boot, who has the most goals, Arsenal's top scorer, or who is scoring for Arsenal.",
+        "summary": "Get top scorers in a league, including Arsenal's scorers",
+        "description": "Returns the top 20 goal scorers in a competition. Also returns arsenalTopScorer (Arsenal's highest-ranked scorer) and arsenalScorers (all Arsenal players in the top 20). Use this when the user asks about top scorers, golden boot, who has the most goals, or Arsenal's top scorer.",
         "parameters": [
           {
             "name": "league",
@@ -191,7 +184,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Top scorers list with Arsenal-specific filtering",
+            "description": "Top scorers list",
             "content": {
               "application/json": {
                 "schema": {
@@ -199,30 +192,14 @@
                   "properties": {
                     "competition": { "type": "string" },
                     "arsenalTopScorer": {
-                      "description": "Arsenal's highest-placed scorer in this competition, or null if none in top 20",
+                      "description": "Arsenal's highest-ranked scorer, or null if none in top 20",
                       "type": "object",
-                      "nullable": true,
-                      "properties": {
-                        "player": { "type": "string" },
-                        "team": { "type": "string" },
-                        "goals": { "type": "integer" },
-                        "assists": { "type": "integer" },
-                        "penalties": { "type": "integer" }
-                      }
+                      "nullable": true
                     },
                     "arsenalScorers": {
-                      "description": "All Arsenal players in the top 20 scorers list",
+                      "description": "All Arsenal players appearing in the top 20",
                       "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "player": { "type": "string" },
-                          "team": { "type": "string" },
-                          "goals": { "type": "integer" },
-                          "assists": { "type": "integer" },
-                          "penalties": { "type": "integer" }
-                        }
-                      }
+                      "items": { "type": "object" }
                     },
                     "scorers": {
                       "type": "array",
@@ -282,24 +259,18 @@
     "/GetPrediction": {
       "get": {
         "operationId": "GetPrediction",
-        "summary": "Get AI-generated match prediction for an upcoming Arsenal match",
-        "description": "Generates an AI prediction for an upcoming match including predicted score and win probability. Use this when the user asks for a prediction, who will win, or what to expect from a match.",
-        "parameters": [
-          { "name": "home", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Home team name" },
-          { "name": "away", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Away team name" },
-          { "name": "competition", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Competition name" },
-          { "name": "date", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Match date" },
-          { "name": "recentForm", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Last 5 results as text, most recent first" }
-        ],
+        "summary": "Get upcoming match data and recent form for a prediction",
+        "description": "Returns the next Arsenal match details and last 5 results. Use this when the user asks for a prediction, who will win, or what to expect from a match.",
         "responses": {
           "200": {
-            "description": "AI prediction text",
+            "description": "Next match and recent form data",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "prediction": { "type": "string" }
+                    "nextMatch": { "type": "object" },
+                    "arsenalRecentForm": { "type": "array", "items": { "type": "string" } }
                   }
                 }
               }
@@ -311,26 +282,23 @@
     "/GetMatchSummary": {
       "get": {
         "operationId": "GetMatchSummary",
-        "summary": "Get AI-generated summary of a completed Arsenal match",
-        "description": "Generates a brief AI summary of a completed match result and what it means. Use this when the user asks about a past result or how a match went.",
-        "parameters": [
-          { "name": "home", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Home team name" },
-          { "name": "away", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Away team name" },
-          { "name": "homeScore", "in": "query", "required": true, "schema": { "type": "integer" }, "description": "Home team score" },
-          { "name": "awayScore", "in": "query", "required": true, "schema": { "type": "integer" }, "description": "Away team score" },
-          { "name": "competition", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Competition name" },
-          { "name": "date", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Match date" },
-          { "name": "stage", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Competition stage e.g. Semi-final, Quarter-final, Group Stage, Final. Include for Champions League matches." }
-        ],
+        "summary": "Get the most recent Arsenal match result with standings context",
+        "description": "Returns the latest completed match result plus current PL standings including games remaining per team. Use this when the user asks about a past result or how a match went.",
         "responses": {
           "200": {
-            "description": "AI summary text",
+            "description": "Match result and standings context",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "summary": { "type": "string" }
+                    "result": { "type": "object" },
+                    "arsenalStandings": { "type": "object", "nullable": true },
+                    "top5Standings": {
+                      "description": "Top 5 teams with exact games remaining — use these figures when mentioning remaining games for any team",
+                      "type": "array",
+                      "items": { "type": "object" }
+                    }
                   }
                 }
               }
@@ -343,7 +311,7 @@
       "get": {
         "operationId": "GetHeadToHead",
         "summary": "Get Arsenal's results against a specific opponent this season",
-        "description": "Returns all finished Arsenal matches against a specific opponent this season, with scores and competition. Use this when the user asks how Arsenal did against a specific team, for head-to-head records, or 'how did we do vs X'.",
+        "description": "Returns all finished Arsenal matches against a specific opponent this season with scores and competition. Use this when the user asks how Arsenal did against a specific team, for head-to-head records, or 'how did we do vs X'.",
         "parameters": [
           {
             "name": "opponent",
@@ -355,26 +323,13 @@
         ],
         "responses": {
           "200": {
-            "description": "Head-to-head results against the specified opponent",
+            "description": "Head-to-head results",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "matches": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "home": { "type": "string" },
-                          "away": { "type": "string" },
-                          "date": { "type": "string" },
-                          "status": { "type": "string" },
-                          "score": { "type": "string" },
-                          "competition": { "type": "string" }
-                        }
-                      }
-                    },
+                    "matches": { "type": "array", "items": { "type": "object" } },
                     "message": { "type": "string" }
                   }
                 }
