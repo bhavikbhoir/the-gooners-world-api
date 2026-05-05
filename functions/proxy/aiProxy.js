@@ -94,11 +94,9 @@ Respond in plain text only, no markdown.`;
             context = `Arsenal are ${arsenal.position === 1 ? 'TOP of the league' : `${arsenal.position}th`} with ${arsenal.points} points after ${arsenal.playedGames} games (${gamesRemaining} remaining). Top 5: ${top5}. emphasiseGamesRemaining: ${emphasiseGamesRemaining}.`;
           }
         } else if (data.competition.includes('Champions') || data.competition.includes('UEFA')) {
-          const arsenalAway = data.away === 'Arsenal';
-          context = data.stage ? `This is a ${data.stage} match.` : 'This is a Champions League knockout match.';
-          if (arsenalAway && data.homeScore === data.awayScore) {
-            context += ' An away draw in a CL knockout is a strong result heading into the home leg.';
-          }
+          const stage = (data.stage || '').replace(/_/g, ' ').toLowerCase();
+          context = stage ? `This is a Champions League ${stage} match.` : 'This is a Champions League knockout match.';
+          context += ' IMPORTANT: Do not speculate about whether a second leg is coming — you do not know if this is the first or second leg. Summarise only what this specific result means.';
         }
       } catch { /* continue without context */ }
 
