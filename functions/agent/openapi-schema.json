@@ -171,8 +171,8 @@
     "/GetScorers": {
       "get": {
         "operationId": "GetScorers",
-        "summary": "Get top scorers in a league",
-        "description": "Returns the top 20 goal scorers in a competition with goals, assists, and penalties. Use this when the user asks about top scorers, golden boot, who has the most goals, or Arsenal's top scorer.",
+        "summary": "Get top scorers in a league, including Arsenal's scorers",
+        "description": "Returns the top 20 goal scorers in a competition. Also returns arsenalTopScorer (Arsenal's highest-ranked scorer) and arsenalScorers (all Arsenal players in the top 20). Use this when the user asks about top scorers, golden boot, who has the most goals, or Arsenal's top scorer.",
         "parameters": [
           {
             "name": "league",
@@ -191,6 +191,8 @@
                   "type": "object",
                   "properties": {
                     "competition": { "type": "string" },
+                    "arsenalTopScorer": { "type": "object", "nullable": true, "description": "Arsenal's highest-ranked scorer, or null if none in top 20" },
+                    "arsenalScorers": { "type": "array", "items": { "type": "object" }, "description": "All Arsenal players in the top 20" },
                     "scorers": {
                       "type": "array",
                       "items": {
@@ -233,8 +235,7 @@
                           "title": { "type": "string" },
                           "description": { "type": "string" },
                           "source": { "type": "string" },
-                          "date": { "type": "string" },
-                          "link": { "type": "string" }
+                          "date": { "type": "string" }
                         }
                       }
                     }
@@ -249,24 +250,18 @@
     "/GetPrediction": {
       "get": {
         "operationId": "GetPrediction",
-        "summary": "Get AI-generated match prediction for an upcoming Arsenal match",
-        "description": "Generates an AI prediction for an upcoming match including predicted score and win probability. Use this when the user asks for a prediction, who will win, or what to expect from a match.",
-        "parameters": [
-          { "name": "home", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Home team name" },
-          { "name": "away", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Away team name" },
-          { "name": "competition", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Competition name" },
-          { "name": "date", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Match date" },
-          { "name": "recentForm", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Last 5 results as text, most recent first" }
-        ],
+        "summary": "Get upcoming match data and recent form for a prediction",
+        "description": "Returns the next Arsenal match details and last 5 results. Use this when the user asks for a prediction, who will win, or what to expect from a match.",
         "responses": {
           "200": {
-            "description": "AI prediction text",
+            "description": "Next match and recent form data",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "prediction": { "type": "string" }
+                    "nextMatch": { "type": "object" },
+                    "arsenalRecentForm": { "type": "array", "items": { "type": "string" } }
                   }
                 }
               }
@@ -278,26 +273,51 @@
     "/GetMatchSummary": {
       "get": {
         "operationId": "GetMatchSummary",
-        "summary": "Get AI-generated summary of a completed Arsenal match",
-        "description": "Generates a brief AI summary of a completed match result and what it means. Use this when the user asks about a past result or how a match went.",
-        "parameters": [
-          { "name": "home", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Home team name" },
-          { "name": "away", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Away team name" },
-          { "name": "homeScore", "in": "query", "required": true, "schema": { "type": "integer" }, "description": "Home team score" },
-          { "name": "awayScore", "in": "query", "required": true, "schema": { "type": "integer" }, "description": "Away team score" },
-          { "name": "competition", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Competition name" },
-          { "name": "date", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Match date" },
-          { "name": "stage", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Competition stage e.g. Semi-final, Quarter-final, Group Stage, Final. Include for Champions League matches." }
-        ],
+        "summary": "Get the most recent Arsenal match result with competition-aware context",
+        "description": "Returns the latest completed match result with context tailored to the competition. For PL matches: leagueContext includes position, points, and emphasiseGamesRemaining (true only in the final 8 games when in title contention — otherwise focus on points/position only). For CL matches: competitionContext includes stage and knockout tie context. Cup matches return result only.",
         "responses": {
           "200": {
-            "description": "AI summary text",
+            "description": "Match result with competition-aware context",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "summary": { "type": "string" }
+                    "result": { "type": "object", "description": "Match result with home, away, scores, competition, stage, date" },
+                    "leagueContext": { "type": "object", "nullable": true, "description": "PL context: position, points, gamesRemaining, emphasiseGamesRemaining, top5" },
+                    "competitionContext": { "type": "object", "nullable": true, "description": "CL context: stage, isKnockout, awayDraw" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/GetHeadToHead": {
+      "get": {
+        "operationId": "GetHeadToHead",
+        "summary": "Get Arsenal's results against a specific opponent this season",
+        "description": "Returns all finished Arsenal matches against a specific opponent this season with scores and competition. Use this when the user asks how Arsenal did against a specific team, for head-to-head records, or 'how did we do vs X'.",
+        "parameters": [
+          {
+            "name": "opponent",
+            "in": "query",
+            "description": "Opponent team name or partial name (e.g. 'Manchester City', 'Man City', 'Chelsea', 'Atletico')",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Head-to-head results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": { "type": "array", "items": { "type": "object" } },
+                    "message": { "type": "string" }
                   }
                 }
               }
