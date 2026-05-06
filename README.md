@@ -5,7 +5,7 @@ Serverless football data and AI backend powering two frontends: [The Gooners Wor
 [![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AWS Lambda](https://img.shields.io/badge/AWS_Lambda-5_functions-FF9900?logo=awslambda&logoColor=white)](https://aws.amazon.com/lambda/)
 [![API Gateway](https://img.shields.io/badge/API_Gateway-REST-FF4F00?logo=amazonapigateway&logoColor=white)](https://aws.amazon.com/api-gateway/)
-[![Amazon Bedrock](https://img.shields.io/badge/Amazon_Bedrock-Claude_Sonnet_%2B_Haiku-7B2D8B?logo=amazonaws&logoColor=white)](https://aws.amazon.com/bedrock/)
+[![Amazon Bedrock](https://img.shields.io/badge/Amazon_Bedrock-Claude_Sonnet-7B2D8B?logo=amazonaws&logoColor=white)](https://aws.amazon.com/bedrock/)
 [![Serverless Framework](https://img.shields.io/badge/Serverless_Framework-v3-FD5750?logo=serverless&logoColor=white)](https://www.serverless.com/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI%2FCD-2088FF?logo=githubactions&logoColor=white)](https://github.com/features/actions)
 
@@ -13,7 +13,7 @@ Serverless football data and AI backend powering two frontends: [The Gooners Wor
 
 ## AI Highlight — Bedrock Agent Core with Claude Sonnet
 
-The standout feature of this backend is a **multi-turn AI chat assistant** built on Amazon Bedrock Agent Core, with Claude Sonnet (`claude-sonnet-4-5`) as the orchestrating model.
+The standout feature of this backend is a **multi-turn AI chat assistant** built on Amazon Bedrock Agent Core, with Claude Sonnet 4.6 (`claude-sonnet-4-6`) as the orchestrating model.
 
 Rather than a simple prompt-in/response-out pattern, the agent autonomously decides which real-time data tools to call, chains multiple calls when needed, and synthesises a coherent response — all within a single user turn. Sessions persist for 10 minutes via a `sessionId`.
 
@@ -61,8 +61,8 @@ The `agentHandler` Lambda returns raw structured data. Claude Sonnet provides al
            │              │          │              │
            ▼              ▼          ▼              ▼
     football-data.org  NewsData.io  Bedrock      Bedrock
-    (v4 REST API)                   Haiku        Agent Core
-                                  (Haiku 4.5)  (Claude Sonnet)
+    (v4 REST API)                   Sonnet       Agent Core
+                                  (Sonnet 4.6) (Claude Sonnet)
                                                      │
                                                      ▼
                                            ┌──────────────────┐
@@ -94,7 +94,7 @@ IAM — Lambda execution role
 |---|---|---|---|
 | `footballProxy` | `/proxy/football` | GET | Proxies football-data.org v4 — fixtures, standings, scorers, live scores, squad, H2H |
 | `newsProxy` | `/proxy/news` | GET | Proxies NewsData.io — latest Arsenal news articles |
-| `aiProxy` | `/proxy/ai` | GET | Bedrock Haiku — match predictions and post-match summaries |
+| `aiProxy` | `/proxy/ai` | GET | Bedrock Sonnet — match predictions and post-match summaries |
 | `agentChat` | `/agent/chat` | POST | Bedrock Agent Core entry point — routes messages to Claude Sonnet |
 | `agentHandler` | (no HTTP event) | — | Bedrock action group handler — invoked by Claude Sonnet when selecting tools |
 
@@ -125,9 +125,9 @@ IAM — Lambda execution role
 
 ## AI Details
 
-### Predictions and Summaries — Claude Haiku (aiProxy)
+### Predictions and Summaries — Claude Sonnet (aiProxy)
 
-Uses `us.anthropic.claude-haiku-4-5-20251001-v1:0` via `InvokeModel`. Max 400 tokens. Fast and cost-efficient for high-frequency reads cached at the CDN layer.
+Uses `us.anthropic.claude-sonnet-4-6` via `InvokeModel`. Max 500 tokens. Same model as the chat agent — consistent quality and reliable instruction-following across both AI features.
 
 **Prediction rules enforced in the system prompt:**
 - Third-person voice; phrases like "Arsenal are expected to" / "The Gunners should"
@@ -136,12 +136,12 @@ Uses `us.anthropic.claude-haiku-4-5-20251001-v1:0` via `InvokeModel`. Max 400 to
 
 **Summary rules enforced in the system prompt:**
 - Never invents goalscorers or match events not in the data
-- Fetches live PL standings before generating summary to add title race / points context
-- For CL knockouts: explains aggregate implications and home/away advantage
+- Fetches live PL standings before generating summary to add title race / points context; includes games remaining only when Arsenal are in the run-in and within striking distance
+- For CL knockouts: describes what the result means at that stage — does not speculate about further legs
 
 ### Chat Assistant — Claude Sonnet via Bedrock Agent Core (agentChat + agentHandler)
 
-Uses `us.anthropic.claude-sonnet-4-5-20251001-v1:0` as the Bedrock Agent foundation model.
+Uses `us.anthropic.claude-sonnet-4-6` as the Bedrock Agent foundation model.
 
 **Agent configuration:**
 
@@ -261,10 +261,10 @@ At approximately 5,000 requests/month:
 |---|---|
 | Lambda (5 functions, ~5K req) | $0 |
 | API Gateway (~5K req) | $0 |
-| Bedrock Claude Haiku (~500 calls) | ~$0.02 |
-| Bedrock Claude Sonnet (~200 chat sessions) | ~$0.30 |
+| Bedrock Claude Sonnet — predictions/summaries (~30 unique calls/month, cached) | ~$0.20 |
+| Bedrock Claude Sonnet — chat sessions (~200 sessions/month) | ~$0.30 |
 | SSM Parameter Store (2 params) | $0 |
-| **Total** | **~$0.32 / month** |
+| **Total** | **~$0.50 / month** |
 
 ---
 

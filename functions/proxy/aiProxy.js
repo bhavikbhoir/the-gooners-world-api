@@ -8,12 +8,12 @@ async function callBedrock(prompt) {
   const client = new BedrockRuntimeClient({ region: REGION });
 
   const res = await client.send(new InvokeModelCommand({
-    modelId: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    modelId: 'us.anthropic.claude-sonnet-4-6',
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify({
       anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: 400,
+      max_tokens: 500,
       messages: [{ role: "user", content: [{ type: "text", text: prompt }] }]
     })
   }));
@@ -110,7 +110,7 @@ RULES:
 - Do NOT mention specific goalscorers, assists, or match events — you do not have that data
 - Use the CONTEXT to explain what this result MEANS specifically
 - For Premier League: focus on points gap and position. Only mention games remaining if CONTEXT shows emphasiseGamesRemaining is true (run-in + title race) — early/mid season just reference points and position
-- For Champions League knockouts: explain tie situation, home/away advantage, aggregate implications
+- For Champions League knockouts: describe what this result means for Arsenal at this stage — do not speculate about further legs or future matches
 - Be passionate but specific — never use generic phrases like "keeping hopes alive"
 - When stating games remaining for ANY team, ONLY use the exact figures from CONTEXT — never estimate or invent
 
