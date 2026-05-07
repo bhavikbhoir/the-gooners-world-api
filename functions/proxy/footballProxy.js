@@ -49,6 +49,10 @@ exports.handler = async (event) => {
         url = `${BASE}/competitions/${league}/scorers?limit=20`;
         cache = 1800;
         break;
+      case 'pl-results':
+        url = `${BASE}/competitions/PL/matches?status=FINISHED`;
+        cache = 900;
+        break;
       case 'competition-matches':
         url = `${BASE}/competitions/${league}/matches?matchday=${event.queryStringParameters?.matchday || ''}`;
         cache = 900;

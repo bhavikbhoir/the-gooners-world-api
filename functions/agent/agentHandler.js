@@ -284,6 +284,39 @@ async function getHeadToHead(params) {
   return { matches: formatMatches(matches, 'recent') };
 }
 
+async function getPlayerStats(params) {
+  const query = (params.name || '').toLowerCase().trim();
+  if (!query) return { error: 'Please provide a player name.' };
+
+  const [squadData, scorersData] = await Promise.all([
+    footballApi(`/teams/${ARSENAL_ID}`),
+    footballApi(`/competitions/PL/scorers?limit=20`),
+  ]);
+
+  const player = (squadData.squad || []).find((p) =>
+    p.name.toLowerCase().includes(query)
+  );
+
+  if (!player) return { found: false, message: `No Arsenal player found matching "${params.name}".` };
+
+  const scorerEntry = (scorersData.scorers || []).find((s) =>
+    s.player.name.toLowerCase().includes(query)
+  );
+
+  return {
+    found: true,
+    name: player.name,
+    position: player.position || null,
+    nationality: player.nationality || null,
+    shirtNumber: player.shirtNumber || null,
+    age: player.dateOfBirth ? Math.floor((Date.now() - new Date(player.dateOfBirth)) / 31557600000) : null,
+    plGoals: scorerEntry?.goals ?? 0,
+    plAssists: scorerEntry?.assists ?? 0,
+    plPenalties: scorerEntry?.penalties ?? 0,
+    inPLScorersList: !!scorerEntry,
+  };
+}
+
 // ── Action router ──────────────────────────────────────────────────
 const ACTIONS = {
   GetFixtures: getFixtures,
@@ -295,6 +328,7 @@ const ACTIONS = {
   GetPrediction: getPrediction,
   GetMatchSummary: getMatchSummary,
   GetHeadToHead: getHeadToHead,
+  GetPlayerStats: getPlayerStats,
 };
 
 // ── Lambda handler (Bedrock Agent Core format) ─────────────────────

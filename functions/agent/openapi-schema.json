@@ -270,6 +270,45 @@
         }
       }
     },
+    "/GetPlayerStats": {
+      "get": {
+        "operationId": "GetPlayerStats",
+        "summary": "Get stats for a specific Arsenal player",
+        "description": "Looks up an Arsenal player by name and returns their position, nationality, age, shirt number, and Premier League goals/assists. Use this when the user asks about a specific player's stats, goals, or details.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Player name or partial name (e.g. 'Saka', 'Martinelli')"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Player stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "found": { "type": "boolean" },
+                    "name": { "type": "string" },
+                    "position": { "type": "string" },
+                    "nationality": { "type": "string" },
+                    "shirtNumber": { "type": "integer" },
+                    "age": { "type": "integer" },
+                    "plGoals": { "type": "integer" },
+                    "plAssists": { "type": "integer" },
+                    "plPenalties": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/GetMatchSummary": {
       "get": {
         "operationId": "GetMatchSummary",
