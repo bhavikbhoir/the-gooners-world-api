@@ -7,6 +7,16 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',');
 const ADMIN_KEY = process.env.ADMIN_KEY;
 const s3 = new S3Client({ region: 'us-east-1' });
 
+function verifyToken(authHeader) {
+  if (!authHeader?.startsWith('Bearer ') || !ADMIN_KEY) return false;
+  const [timestamp, hmac] = authHeader.slice(7).split('.');
+  if (!timestamp || !hmac) return false;
+  if (Math.floor(Date.now() / 1000) - parseInt(timestamp, 10) > 8 * 3600) return false;
+  const expected = crypto.createHmac('sha256', ADMIN_KEY).update(timestamp).digest('hex');
+  try { return crypto.timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expected, 'hex')); }
+  catch { return false; }
+}
+
 function httpPost(url, headers, body) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
@@ -122,7 +132,7 @@ exports.handler = async (event) => {
   const corsHeaders = {
     'Access-Control-Allow-Origin': corsOrigin,
     'Vary': 'Origin',
-    'Access-Control-Allow-Headers': 'Content-Type,x-api-key,x-admin-key',
+    'Access-Control-Allow-Headers': 'Content-Type,x-api-key,Authorization',
     'Access-Control-Allow-Methods': 'POST,OPTIONS',
   };
 
@@ -130,9 +140,9 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
-  const adminKey = event.headers?.['x-admin-key'] || event.headers?.['X-Admin-Key'];
-  if (!ADMIN_KEY || adminKey !== ADMIN_KEY) {
-    return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Forbidden' }) };
+  const authHeader = event.headers?.authorization || event.headers?.Authorization;
+  if (!verifyToken(authHeader)) {
+    return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Unauthorized' }) };
   }
 
   try {
