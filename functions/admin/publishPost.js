@@ -1,4 +1,5 @@
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const crypto = require('crypto');
 const https = require('https');
 
@@ -23,18 +24,26 @@ function httpPost(url, headers, body) {
   });
 }
 
-async function uploadToS3(base64Data, mimeType) {
+function matchSlug(home, away, homeScore, awayScore) {
+  const clean = (s) => (s || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  return `${clean(home)}-vs-${clean(away)}-${homeScore ?? 'x'}-${awayScore ?? 'x'}-${ts}`;
+}
+
+async function uploadToS3(base64Data, mimeType, matchMeta) {
   const bucket = process.env.S3_IMAGES_BUCKET;
   if (!bucket) throw new Error('S3_IMAGES_BUCKET not configured');
   const ext = mimeType.split('/')[1] || 'jpg';
-  const key = `social/${Date.now()}.${ext}`;
+  const slug = matchSlug(matchMeta?.home, matchMeta?.away, matchMeta?.homeScore, matchMeta?.awayScore);
+  const key = `social/${slug}.${ext}`;
   await s3.send(new PutObjectCommand({
     Bucket: bucket,
     Key: key,
     Body: Buffer.from(base64Data, 'base64'),
     ContentType: mimeType,
   }));
-  return `https://${bucket}.s3.amazonaws.com/${key}`;
+  // Pre-signed URL valid for 5 minutes — enough for Instagram to fetch, expires after
+  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
 }
 
 async function postToInstagram({ imageUrl, caption }) {
@@ -127,12 +136,12 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { platform, instagramCaption, xText, imageBase64, mimeType } = JSON.parse(event.body || '{}');
+    const { platform, instagramCaption, xText, imageBase64, mimeType, home, away, homeScore, awayScore } = JSON.parse(event.body || '{}');
     const results = {};
 
     if (platform === 'instagram' || platform === 'both') {
       if (!imageBase64) throw new Error('Image required for Instagram');
-      const imageUrl = await uploadToS3(imageBase64, mimeType || 'image/jpeg');
+      const imageUrl = await uploadToS3(imageBase64, mimeType || 'image/jpeg', { home, away, homeScore, awayScore });
       results.instagram = await postToInstagram({ imageUrl, caption: instagramCaption });
     }
 
