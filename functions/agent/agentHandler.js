@@ -153,15 +153,26 @@ async function getSquad() {
   return { team: data.name, coach: data.coach?.name, squad };
 }
 
+const NEWS_JUNK = /^(Premier League|Bundesliga|La Liga|Serie A|Ligue 1|Champions League|Europa League):[^A]|^(?!.*arsenal|.*gunners).*\bwag\b|\btwerk\b/i;
+
 async function getNews() {
-  const url = `https://newsdata.io/api/1/latest?apikey=${NEWS_API_KEY}&q=%22Arsenal%20FC%22%20OR%20%22Arsenal%20Football%20Club%22&category=sports&language=en&size=5`;
+  const url = `https://newsdata.io/api/1/latest?apikey=${NEWS_API_KEY}&q=%22Arsenal%20FC%22%20OR%20%22Arsenal%20Football%20Club%22&category=sports&language=en&size=10`;
   const data = await httpGet(url);
-  const articles = (data.results || []).map((a) => ({
-    title: a.title,
-    description: a.description?.slice(0, 200),
-    source: a.source_name,
-    date: a.pubDate,
-  }));
+  const articles = (data.results || [])
+    .filter((a) => {
+      if (!a.title) return false;
+      if (/\bwag\b|\btwerk\b/i.test(a.title)) return false;
+      if (/^(Premier League|Bundesliga|La Liga|Serie A|Ligue 1):/i.test(a.title) && !/arsenal|gunners/i.test(a.title)) return false;
+      if (a.description && a.description.trim() === a.title.trim()) return false;
+      return true;
+    })
+    .slice(0, 5)
+    .map((a) => ({
+      title: a.title,
+      description: a.description?.slice(0, 200),
+      source: a.source_name,
+      date: a.pubDate,
+    }));
   return { articles };
 }
 

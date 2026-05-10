@@ -7,11 +7,13 @@ const ARSENAL_ID = 57;
 
 function fetch(url, headers) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers }, (res) => {
+    const req = https.get(url, { headers }, (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => resolve({ status: res.statusCode, body: data }));
-    }).on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Upstream timeout')); });
   });
 }
 

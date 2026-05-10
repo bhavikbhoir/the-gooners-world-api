@@ -10,6 +10,14 @@ provider:
     FOOTBALL_API_KEY: ${env:FOOTBALL_API_KEY, ssm:/tgw/football-api-key}
     NEWS_API_KEY: ${env:NEWS_API_KEY, ssm:/tgw/news-api-key}
     ALLOWED_ORIGINS: ${self:custom.allowedOrigins.${self:provider.stage}}
+    ADMIN_KEY: ${env:ADMIN_KEY, ssm:/tgw/admin-key}
+    IG_ACCESS_TOKEN: ${env:IG_ACCESS_TOKEN, ssm:/tgw/ig-access-token}
+    IG_ACCOUNT_ID: ${env:IG_ACCOUNT_ID, ssm:/tgw/ig-account-id}
+    X_APP_KEY: ${env:X_APP_KEY, ssm:/tgw/x-app-key}
+    X_APP_SECRET: ${env:X_APP_SECRET, ssm:/tgw/x-app-secret}
+    X_ACCESS_TOKEN: ${env:X_ACCESS_TOKEN, ssm:/tgw/x-access-token}
+    X_ACCESS_TOKEN_SECRET: ${env:X_ACCESS_TOKEN_SECRET, ssm:/tgw/x-access-token-secret}
+    S3_IMAGES_BUCKET: ${env:S3_IMAGES_BUCKET, 'tgw-social-images'}
   iam:
     role:
       statements:
@@ -25,6 +33,11 @@ provider:
           Resource:
             - "arn:aws:bedrock:us-east-1:*:agent/*"
             - "arn:aws:bedrock:us-east-1:*:agent-alias/*"
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+          Resource:
+            - "arn:aws:s3:::tgw-social-images/*"
   apiGateway:
     apiKeys:
       - tgw-frontend-${self:provider.stage}
@@ -54,6 +67,7 @@ functions:
 
   newsProxy:
     handler: functions/proxy/newsProxy.handler
+    timeout: 15
     events:
       - http:
           path: proxy/news
@@ -88,6 +102,34 @@ functions:
           method: post
           cors: true
           private: true
+
+  generateMatchPost:
+    handler: functions/admin/generateMatchPost.handler
+    timeout: 20
+    events:
+      - http:
+          path: admin/generate
+          method: post
+          cors: true
+          private: true
+      - http:
+          path: admin/generate
+          method: options
+          cors: true
+
+  publishPost:
+    handler: functions/admin/publishPost.handler
+    timeout: 30
+    events:
+      - http:
+          path: admin/publish
+          method: post
+          cors: true
+          private: true
+      - http:
+          path: admin/publish
+          method: options
+          cors: true
 
 plugins:
   - serverless-offline
