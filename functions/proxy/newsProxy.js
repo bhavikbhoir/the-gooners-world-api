@@ -91,13 +91,15 @@ exports.handler = async (event) => {
   }
 
   try {
+    const nextPageToken = event.queryStringParameters?.nextPage || null;
     const params = new URLSearchParams({
       apikey: API_KEY,
       q: '"Arsenal FC" OR "Arsenal Football Club"',
       category: 'sports',
       language: 'en',
-      size: '10',
+      size: '20',
     });
+    if (nextPageToken) params.set('page', nextPageToken);
 
     const res = await httpGet(`${BASE}?${params}`);
     if (res.status !== 200) {
