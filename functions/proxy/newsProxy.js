@@ -97,7 +97,7 @@ exports.handler = async (event) => {
       q: '"Arsenal FC" OR "Arsenal Football Club"',
       category: 'sports',
       language: 'en',
-      size: '20',
+      size: '10',
     });
     if (nextPageToken) params.set('page', nextPageToken);
 
