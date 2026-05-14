@@ -28,3 +28,6 @@ jobs:
           aws-region: us-east-1
       - name: Deploy
         run: npx serverless deploy --stage ${{ github.event.inputs.stage || 'dev' }}
+        env:
+          BEDROCK_AGENT_ID: ${{ secrets.BEDROCK_AGENT_ID }}
+          BEDROCK_AGENT_ALIAS_ID: ${{ secrets.BEDROCK_AGENT_ALIAS_ID }}
