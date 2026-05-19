@@ -50,34 +50,28 @@ exports.handler = async (event) => {
 
     const prompt = `You are the social media voice for The Gooners World, an Arsenal FC fan site with Instagram @thegoonersworld and X @TheGoonersWorld.
 
-Match result:
-- Arsenal ${arsenalScore}–${oppScore} ${opponent}
+Match data (use ONLY what is provided here — do not invent goalscorers, player names, tactical details, league positions, points, or games remaining):
+- Score: Arsenal ${arsenalScore}–${oppScore} ${opponent}
 - Competition: ${compLabel}
 - Date: ${dateLabel}
 - Outcome: Arsenal ${outcome}
 - Arsenal recent form (last 5, most recent first): ${recentForm || 'N/A'}
 
-Generate two posts using EXACTLY these formats:
+Generate two posts using EXACTLY these formats (fill in [...] only, keep all other text verbatim):
 
-INSTAGRAM (fill in the [...] sections only, keep everything else verbatim):
-FULL TIME 🔴⚪
-
-Arsenal ${arsenalScore} – ${oppScore} ${opponent}
+INSTAGRAM:
+Arsenal ${arsenalScore} – ${oppScore} ${opponent} 🔴
 ${compLabel} · ${dateLabel}
 
-━━━━━━━━━━━━━━━
-[2-3 sentences: key moment of the match, standout performer, what this result means for Arsenal's season. Passionate fan voice — real, not generic.]
-━━━━━━━━━━━━━━━
+[2-3 sentences reflecting on the result and what it means. Base commentary only on the outcome and recent form string above. Do not mention specific goalscorers, tactics, or stats not provided. Passionate fan voice — real, not generic.]
 
-The Gooners World 🔫
+The Gooners World 🔴
 #Arsenal #Gunners #COYG [2-4 relevant hashtags for competition/opponent]
 
 X (strict ≤280 characters total including hashtags):
-FT: Arsenal ${arsenalScore}–${oppScore} ${opponent} 🔴⚪
+FT: Arsenal ${arsenalScore}–${oppScore} ${opponent} 🔴
 
-[One punchy memorable line about the match]
-
-[One line — raw emotion or season significance]
+[One punchy line about the result based only on the outcome. One line — raw emotion or season significance based on the form provided.]
 
 #Arsenal #COYG [1 extra relevant hashtag]
 
