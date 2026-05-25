@@ -49,9 +49,9 @@ exports.handler = async (event) => {
 TASK: Write a 3-4 sentence match prediction. Include a predicted score and win/draw/loss percentage.
 
 RULES:
+- Start your response immediately with the prediction — no preamble, no "Note:", no caveats about data
 - Write in third person. Never say "I predict" or "I think"
 - Use phrases like "Arsenal are expected to", "This one looks like", "The Gunners should"
-- Focus ONLY on the league form when predicting a league match, and cup form for cup matches
 - The most recent result is the FIRST one listed — weight it most heavily
 - If Arsenal lost 2 of the last 3, acknowledge poor form — do not predict a dominant win
 - Be realistic, not blindly optimistic
