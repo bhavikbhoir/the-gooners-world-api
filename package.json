@@ -3,10 +3,16 @@
   "version": "1.0.0",
   "description": "Backend API proxy for The Gooners World",
   "scripts": {
+    "test": "node --test functions/**/*.test.js",
     "deploy": "serverless deploy",
     "deploy:dev": "serverless deploy --stage dev",
     "deploy:prod": "serverless deploy --stage prod",
     "offline": "serverless offline start"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.750.0"
   },
   "devDependencies": {
     "serverless": "^3.39.0",

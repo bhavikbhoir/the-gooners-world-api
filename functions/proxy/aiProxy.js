@@ -120,6 +120,38 @@ Date: ${data.date}
 
 Respond in plain text only, no markdown.`;
       cache = 86400;
+    } else if (type === 'wc-summary') {
+      const gunnerPlayers = data.gunnerPlayers || [];
+      const gunnerGoals = data.gunnerGoals || [];
+
+      const gunnerList = gunnerPlayers.map(p => `${p.name} plays for ${p.country} (${p.side === 'home' ? data.homeTeam : data.awayTeam})`).join('; ');
+      const gunnerGoalText = gunnerGoals.length > 0
+        ? gunnerGoals.map(g => `${g.scorer} scored in the ${g.minute}' minute${g.type === 'PENALTY' ? ' (penalty)' : g.type === 'OWN_GOAL' ? ' (own goal)' : ''}`).join('; ')
+        : 'No Arsenal players scored in this match.';
+      const stageLabel = (data.stage || '').replace(/_/g, ' ');
+      const result = data.homeScore > data.awayScore
+        ? `${data.homeTeam} won`
+        : data.awayScore > data.homeScore
+          ? `${data.awayTeam} won`
+          : 'The match ended in a draw';
+
+      prompt = `You are a reporter for The Gooners World, an Arsenal FC fan site.
+
+TASK: Write a 2-sentence World Cup match note for Arsenal fans. Use ONLY the facts below — do not add any detail not provided.
+
+FACTS:
+- Match: ${data.homeTeam} ${data.homeScore} – ${data.awayScore} ${data.awayTeam}
+- Stage: ${stageLabel}
+- Result: ${result}
+- Arsenal players in these squads: ${gunnerList || 'none identified'}
+- Arsenal players who scored: ${gunnerGoalText}
+
+RULES:
+- Never state a player started, played minutes, or was on the pitch — you only know their nationality links them to this nation.
+- If an Arsenal player scored, state it as fact (it is confirmed above).
+- Be specific to these facts. No filler phrases like "keeping hopes alive" or "a crucial result".
+- Plain text only, no markdown.`;
+      cache = 86400;
     } else {
       return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid type' }) };
     }
