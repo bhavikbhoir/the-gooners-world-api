@@ -86,14 +86,6 @@ exports.handler = async (event) => {
         url = `${BASE}/competitions/PL/standings?season=${season || 2024}`;
         cache = 86400;
         break;
-      case 'wc-matches':
-        url = `${BASE}/competitions/WC/matches`;
-        cache = 900;
-        break;
-      case 'wc-live':
-        url = `${BASE}/competitions/WC/matches?status=IN_PLAY,LIVE,PAUSED`;
-        cache = 30;
-        break;
       default:
         url = `${BASE}/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED,FINISHED&limit=20`;
         cache = 900;

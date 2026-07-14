@@ -40,13 +40,6 @@ provider:
             - s3:GetObject
           Resource:
             - "arn:aws:s3:::tgw-social-images/*"
-        - Effect: Allow
-          Action:
-            - dynamodb:PutItem
-            - dynamodb:GetItem
-            - dynamodb:Query
-          Resource:
-            - "arn:aws:dynamodb:us-east-1:*:table/tgw-wc-archive"
   apiGateway:
     apiKeys:
       - tgw-frontend-${self:provider.stage}
@@ -154,42 +147,5 @@ functions:
           method: options
           cors: true
 
-  wcArchive:
-    handler: functions/wc/wcArchive.handler
-    timeout: 10
-    events:
-      - http:
-          path: wc/archive
-          method: get
-          cors: true
-          private: true
-
-  wcCron:
-    handler: functions/wc/wcCron.handler
-    timeout: 60
-    description: Hourly cron — archives finished WC matches with Arsenal player connections to DynamoDB
-    events:
-      - schedule:
-          rate: rate(1 hour)
-          enabled: true
-
 plugins:
   - serverless-offline
-
-resources:
-  Resources:
-    WCArchiveTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: tgw-wc-archive
-        BillingMode: PAY_PER_REQUEST
-        AttributeDefinitions:
-          - AttributeName: pk
-            AttributeType: S
-          - AttributeName: sk
-            AttributeType: S
-        KeySchema:
-          - AttributeName: pk
-            KeyType: HASH
-          - AttributeName: sk
-            KeyType: RANGE
