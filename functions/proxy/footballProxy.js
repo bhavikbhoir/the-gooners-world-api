@@ -34,6 +34,17 @@ exports.handler = async (event) => {
     const league = event.queryStringParameters?.league || 'PL';
     let url, cache;
 
+    // Rolling window for team fixtures: recent results + upcoming matches.
+    // NOTE: do NOT use `limit=N` on /teams/{id}/matches — football-data.org
+    // returns the LAST N of the season (season tail), not the next N. Use a
+    // date window instead. Keep the range <= ~3 months for free-tier safety.
+    const isoDate = (offsetDays) =>
+      new Date(Date.now() + offsetDays * 86400000).toISOString().slice(0, 10);
+    const matchesFrom = isoDate(-14);
+    const matchesTo = isoDate(90);
+    const teamMatchesUrl =
+      `${BASE}/teams/${ARSENAL_ID}/matches?dateFrom=${matchesFrom}&dateTo=${matchesTo}`;
+
     switch (type) {
       case 'standings':
         url = `${BASE}/competitions/${league}/standings`;
@@ -60,7 +71,7 @@ exports.handler = async (event) => {
         cache = 900;
         break;
       case 'matches':
-        url = `${BASE}/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED,FINISHED&limit=20`;
+        url = teamMatchesUrl;
         cache = 900;
         break;
       case 'h2h':
@@ -87,7 +98,7 @@ exports.handler = async (event) => {
         cache = 86400;
         break;
       default:
-        url = `${BASE}/teams/${ARSENAL_ID}/matches?status=SCHEDULED,TIMED,FINISHED&limit=20`;
+        url = teamMatchesUrl;
         cache = 900;
     }
 
