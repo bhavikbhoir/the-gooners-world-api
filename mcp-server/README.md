@@ -42,7 +42,43 @@ One tool layer, two consumers — no duplicated logic.
 | `GetHeadToHead` | Arsenal's results vs a given opponent this season |
 | `GetPlayerStats` | Profile + PL stats for a specific Arsenal player |
 
-## Setup
+## Two ways to run it
+
+| | Local (stdio) | Remote (hosted HTTP) |
+|---|---|---|
+| Code | `mcp-server/server.js` | `functions/mcp/mcpHttp.js` (Lambda) |
+| Transport | stdio | Streamable HTTP (stateless) |
+| Who it's for | developers on this machine | anyone, by URL — recruiters |
+| Setup | clone + `npm install` + keys | none — just a URL + key |
+| Secrets | in the client's env block | stay server-side in SSM |
+
+Both expose the **same ten tools** from the same shared layer.
+
+---
+
+## Remote connection (recommended for recruiters)
+
+The server is hosted on AWS (API Gateway → Lambda). To connect, add a **custom
+connector** in Claude pointing at the endpoint, with the API key as a header:
+
+- **Endpoint:** `https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/mcp`
+- **Header:** `x-api-key: <your-recruiter-key>`
+
+No repo, no install, no shared secrets — the football-data.org / NewsData keys
+never leave the server. API Gateway applies the usage plan (1,000 calls/day,
+10 req/s) automatically, and the Lambda caches responses to protect the upstream.
+
+> Header support varies by MCP client. Clients that let you set custom headers
+> (Claude Code, the MCP Inspector, custom agents) work directly. Test it with:
+> ```bash
+> npx @modelcontextprotocol/inspector
+> # then: Transport = "Streamable HTTP", URL = the /mcp endpoint,
+> #       add header x-api-key = <key>
+> ```
+
+---
+
+## Local setup (stdio)
 
 ```bash
 cd mcp-server

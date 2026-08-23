@@ -147,5 +147,20 @@ functions:
           method: options
           cors: true
 
+  mcpHttp:
+    handler: functions/mcp/mcpHttp.handler
+    timeout: 29
+    description: Remote MCP server (Streamable HTTP, stateless) — Arsenal tools over the shared tool layer
+    events:
+      - http:
+          path: mcp
+          method: post
+          cors: true
+          private: true
+      - http:
+          path: mcp
+          method: options
+          cors: true
+
 plugins:
   - serverless-offline
