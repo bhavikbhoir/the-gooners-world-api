@@ -56,25 +56,63 @@ Both expose the **same ten tools** from the same shared layer.
 
 ---
 
-## Remote connection (recommended for recruiters)
+## Try it remotely (no install)
 
-The server is hosted on AWS (API Gateway → Lambda). To connect, add a **custom
-connector** in Claude pointing at the endpoint, with the API key as a header:
+The server is hosted on AWS (API Gateway → Lambda) and exposes **two** routes:
 
-- **Endpoint:** `https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/mcp`
-- **Header:** `x-api-key: <your-recruiter-key>`
+| Route | Auth | Use it for |
+|-------|------|-----------|
+| `/dev/mcp-public` | none | the "paste a URL and connect" demo — reviewers |
+| `/dev/mcp` | `x-api-key` header | real / keyed clients |
 
-No repo, no install, no shared secrets — the football-data.org / NewsData keys
-never leave the server. API Gateway applies the usage plan (1,000 calls/day,
-10 req/s) automatically, and the Lambda caches responses to protect the upstream.
+Either way, no repo, no install, no local keys — the football-data.org / NewsData
+secrets never leave the server, and the Lambda caches responses to protect the
+upstream. There is **no LLM cost on this path**: the reasoning runs in *your*
+Claude; the server only returns raw Arsenal data.
 
-> Header support varies by MCP client. Clients that let you set custom headers
-> (Claude Code, the MCP Inspector, custom agents) work directly. Test it with:
-> ```bash
-> npx @modelcontextprotocol/inspector
-> # then: Transport = "Streamable HTTP", URL = the /mcp endpoint,
-> #       add header x-api-key = <key>
-> ```
+### Option 1 — Custom connector in Claude (easiest)
+
+Claude's connector UI authenticates by URL alone (no header field), so point it
+at the public route and it connects instantly:
+
+1. Claude → **Settings → Connectors → Add custom connector**
+2. **URL:** `https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/mcp-public`
+3. **Connect** → the ten `gooners-world` tools appear.
+
+Now ask *"What's Arsenal's next match?"* and Claude calls `GetFixtures`.
+
+### Option 2 — MCP Inspector (30-second self-serve for engineers)
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+In the browser UI that opens:
+- **Transport:** `Streamable HTTP`
+- **URL:** `https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/mcp-public`
+- **Connect → List Tools** (all 10) → run `GetStandings` → live Arsenal table.
+
+### Option 3 — Keyed route via `mcp-remote` (Claude Desktop, header auth)
+
+To use the authenticated `/mcp` route from Claude Desktop, bridge it with
+`mcp-remote` (it injects the header the connector UI can't):
+
+```json
+{
+  "mcpServers": {
+    "gooners-world": {
+      "command": "npx",
+      "args": [
+        "-y", "mcp-remote",
+        "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/mcp",
+        "--header", "x-api-key:${GOONERS_KEY}",
+        "--transport", "http-only"
+      ],
+      "env": { "GOONERS_KEY": "<your-recruiter-key>" }
+    }
+  }
+}
+```
 
 ---
 

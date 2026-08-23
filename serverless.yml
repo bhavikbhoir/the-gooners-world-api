@@ -152,6 +152,7 @@ functions:
     timeout: 29
     description: Remote MCP server (Streamable HTTP, stateless) — Arsenal tools over the shared tool layer
     events:
+      # Authenticated route (x-api-key) — for real/keyed clients.
       - http:
           path: mcp
           method: post
@@ -159,6 +160,19 @@ functions:
           private: true
       - http:
           path: mcp
+          method: options
+          cors: true
+      # Public demo route — no key, so Claude's custom-connector UI connects by
+      # URL alone. Safe here: this path has NO Bedrock cost (the LLM runs in the
+      # client), the handler caches upstream calls, and the account-level API
+      # Gateway throttle (10 req/s, 15 burst) still applies. Only exposes the
+      # football-data.org quota, which is cached.
+      - http:
+          path: mcp-public
+          method: post
+          cors: true
+      - http:
+          path: mcp-public
           method: options
           cors: true
 
