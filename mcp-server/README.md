@@ -18,14 +18,14 @@ and this MCP server exposes **the exact same handlers** over stdio.
                     ┌──────────────────────────────┐
                     │  arsenalTools.js (10 tools)  │   ← single source of truth
                     └───────────────┬──────────────┘
-              HTTP action groups    │    stdio (MCP)
-        ┌───────────────────────────┴───────────────────────────┐
-        ▼                                                        ▼
-  Bedrock Agent Core                                     MCP clients
-  (the chat widget on the site)                    (Claude Desktop, etc.)
+   HTTP action groups   │   stdio (MCP)   │   Streamable HTTP (MCP)
+        ┌───────────────┴───────┬─────────┴───────────────┐
+        ▼                       ▼                          ▼
+  Bedrock Agent Core     Local MCP server          Remote MCP server
+  (chat widget on site)  (this dir — Desktop)      (functions/mcp/mcpHttp.js)
 ```
 
-One tool layer, two consumers — no duplicated logic.
+One tool layer, three consumers — no duplicated logic.
 
 ## Tools
 
@@ -49,7 +49,7 @@ One tool layer, two consumers — no duplicated logic.
 | Code | `mcp-server/server.js` | `functions/mcp/mcpHttp.js` (Lambda) |
 | Transport | stdio | Streamable HTTP (stateless) |
 | Who it's for | developers on this machine | anyone, by URL — recruiters |
-| Setup | clone + `npm install` + keys | none — just a URL + key |
+| Setup | clone + `npm install` + keys | none — just paste the public URL |
 | Secrets | in the client's env block | stay server-side in SSM |
 
 Both expose the **same ten tools** from the same shared layer.
@@ -76,7 +76,7 @@ Claude's connector UI authenticates by URL alone (no header field), so point it
 at the public route and it connects instantly:
 
 1. Claude → **Settings → Connectors → Add custom connector**
-2. **URL:** `https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/mcp-public`
+2. **URL:** `https://1xgf5u2adh.execute-api.us-east-1.amazonaws.com/dev/mcp-public`
 3. **Connect** → the ten `gooners-world` tools appear.
 
 Now ask *"What's Arsenal's next match?"* and Claude calls `GetFixtures`.
@@ -89,7 +89,7 @@ npx @modelcontextprotocol/inspector
 
 In the browser UI that opens:
 - **Transport:** `Streamable HTTP`
-- **URL:** `https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/mcp-public`
+- **URL:** `https://1xgf5u2adh.execute-api.us-east-1.amazonaws.com/dev/mcp-public`
 - **Connect → List Tools** (all 10) → run `GetStandings` → live Arsenal table.
 
 ### Option 3 — Keyed route via `mcp-remote` (Claude Desktop, header auth)
@@ -104,7 +104,7 @@ To use the authenticated `/mcp` route from Claude Desktop, bridge it with
       "command": "npx",
       "args": [
         "-y", "mcp-remote",
-        "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/mcp",
+        "https://1xgf5u2adh.execute-api.us-east-1.amazonaws.com/dev/mcp",
         "--header", "x-api-key:${GOONERS_KEY}",
         "--transport", "http-only"
       ],

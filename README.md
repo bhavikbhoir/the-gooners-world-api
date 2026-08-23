@@ -1,11 +1,12 @@
 # The Gooners World — Backend API
 
-Serverless football data and AI backend powering two frontends: [The Gooners World](https://the-gooners-world.web.app) (Arsenal FC fan site) and [FootBBall App](https://the-footbball-app.web.app) (multi-league stats).
+Serverless football data and AI backend powering two frontends: [The Gooners World](https://the-gooners-world.web.app) (Arsenal FC fan site) and [FootBBall App](https://the-footbball-app.web.app) (multi-league stats). It also exposes its Arsenal data tools over the **Model Context Protocol (MCP)**, so any AI client — Claude Desktop, Claude Code, the MCP Inspector — can use them directly.
 
 [![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![AWS Lambda](https://img.shields.io/badge/AWS_Lambda-8_functions-FF9900?logo=awslambda&logoColor=white)](https://aws.amazon.com/lambda/)
+[![AWS Lambda](https://img.shields.io/badge/AWS_Lambda-9_functions-FF9900?logo=awslambda&logoColor=white)](https://aws.amazon.com/lambda/)
 [![API Gateway](https://img.shields.io/badge/API_Gateway-REST-FF4F00?logo=amazonapigateway&logoColor=white)](https://aws.amazon.com/api-gateway/)
 [![Amazon Bedrock](https://img.shields.io/badge/Amazon_Bedrock-Claude_Sonnet-7B2D8B?logo=amazonaws&logoColor=white)](https://aws.amazon.com/bedrock/)
+[![Model Context Protocol](https://img.shields.io/badge/MCP-10_tools-000000?logo=anthropic&logoColor=white)](https://modelcontextprotocol.io)
 [![Serverless Framework](https://img.shields.io/badge/Serverless_Framework-v3-FD5750?logo=serverless&logoColor=white)](https://www.serverless.com/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI%2FCD-2088FF?logo=githubactions&logoColor=white)](https://github.com/features/actions)
 
@@ -30,6 +31,54 @@ agentChat Lambda
 ```
 
 The `agentHandler` Lambda returns raw structured data. Claude Sonnet provides all natural language reasoning and response generation — keeping the tool handlers simple, testable, and data-only.
+
+---
+
+## MCP Highlight — one tool layer, three consumers
+
+The ten Arsenal data tools live in a **single shared registry**, [`functions/agent/arsenalTools.js`](functions/agent/arsenalTools.js). Three different consumers reach the exact same handlers — no duplicated logic:
+
+```
+                    ┌──────────────────────────────────┐
+                    │   arsenalTools.js (10 tools)     │   ← single source of truth
+                    └───────────────┬──────────────────┘
+        ┌───────────────────────────┼───────────────────────────┐
+        │ HTTP action groups        │ stdio (MCP)                │ Streamable HTTP (MCP)
+        ▼                           ▼                            ▼
+  Bedrock Agent Core         Local MCP server            Remote MCP server
+  (chat widget on site)      mcp-server/server.js        functions/mcp/mcpHttp.js
+                             (Claude Desktop, dev)        (any client, by URL)
+```
+
+This makes the backend usable **two ways**: as the AI chat on the website, *and* as a set of tools a recruiter can plug into their own Claude and query in plain English — "What's Arsenal's next match?", "Where are Arsenal in the table?", "How many goals has Saka scored?"
+
+### Try it — connect in under a minute
+
+The remote server is hosted on AWS (API Gateway → Lambda) with two routes:
+
+| Route | Auth | For |
+|-------|------|-----|
+| `POST /dev/mcp-public` | none | the paste-a-URL demo — recruiters |
+| `POST /dev/mcp` | `x-api-key` header | keyed clients |
+
+**Easiest — custom connector in Claude** (Desktop or web): Settings → Connectors → **Add custom connector** → paste the public URL:
+
+```
+https://1xgf5u2adh.execute-api.us-east-1.amazonaws.com/dev/mcp-public
+```
+
+Connect, and the ten `gooners-world` tools appear. Ask Arsenal questions in plain English and Claude calls the right tool.
+
+**Or, self-serve with the MCP Inspector** (no Claude account):
+
+```bash
+npx @modelcontextprotocol/inspector
+# Transport: Streamable HTTP
+# URL: https://1xgf5u2adh.execute-api.us-east-1.amazonaws.com/dev/mcp-public
+# → Connect → List Tools → run GetStandings
+```
+
+Why the public route is safe: this path has **no Bedrock/LLM cost** (the reasoning runs in *your* Claude — the server only returns raw football data), the Lambda caches upstream calls, and the API Gateway throttle still applies. Full details and the keyed `mcp-remote` setup are in [`mcp-server/README.md`](mcp-server/README.md).
 
 ---
 
@@ -88,6 +137,7 @@ IAM — Lambda execution role
 | `adminAuth` | `/admin/auth` | POST | Password authentication — returns signed 8-hour Bearer token |
 | `generateMatchPost` | `/admin/generate` | POST | Calls Claude Sonnet to write branded Instagram + X post copy from a match result |
 | `publishPost` | `/admin/publish` | POST | Uploads image to private S3 (pre-signed URL), posts to Instagram Graph API and X |
+| `mcpHttp` | `/mcp` (keyed) · `/mcp-public` (open) | POST | Remote MCP server (Streamable HTTP, stateless) — exposes the 10 shared tools to any AI client |
 
 ### Football Proxy — `?type=` query parameter
 
@@ -158,7 +208,7 @@ Uses `us.anthropic.claude-sonnet-4-6` as the Bedrock Agent foundation model.
 |---|---|
 | Agent ID | `Q0U07RR09G` |
 | Live alias | `2HVFYQGWR7` → Version 2 |
-| Action group | `ArsenalTools` (9 tools) |
+| Action group | `ArsenalTools` (10 tools, from the shared `arsenalTools.js` layer) |
 | Session TTL | 600 seconds |
 | Guardrail | Enabled (content filtering) |
 | OpenAPI schema | `functions/agent/openapi-schema.json` |
@@ -175,9 +225,10 @@ Uses `us.anthropic.claude-sonnet-4-6` as the Bedrock Agent foundation model.
 | `GetNews` | NewsData.io | User asks about transfers, rumours, or off-pitch news |
 | `GetPrediction` | football-data.org | User asks for a match prediction |
 | `GetMatchSummary` | football-data.org | User asks how a past match went |
+| `GetHeadToHead` | football-data.org | User asks about Arsenal's record vs a specific opponent |
 | `GetPlayerStats` | football-data.org | User asks about a specific player's stats |
 
-Action handlers return raw structured data only. Claude Sonnet generates all natural language output and can chain multiple tool calls to answer complex questions.
+Action handlers return raw structured data only. Claude Sonnet generates all natural language output and can chain multiple tool calls to answer complex questions. The **same ten handlers** are re-exported over MCP (stdio + remote HTTP) with zero duplication — see the [MCP Highlight](#mcp-highlight--one-tool-layer-three-consumers) above.
 
 **Response sanitization** strips Bedrock-specific artefacts: `<answer>` XML tags, `question="..."` prefixes, `answer:` prefixes.
 
@@ -409,11 +460,18 @@ npx serverless deploy
 │   │   ├── adminAuth.js                 # POST /admin/auth — password check, issues HMAC Bearer token
 │   │   ├── generateMatchPost.js         # POST /admin/generate — Claude Sonnet match post writer
 │   │   └── publishPost.js               # POST /admin/publish — S3 upload, Instagram + X posting
-│   └── agent/
-│       ├── agentChat.js                 # POST /agent/chat — invokes Bedrock Agent Core (Claude Sonnet 4.6)
-│       ├── agentHandler.js              # Action group handler — 9 tools for Claude Sonnet
-│       ├── openapi-schema.json          # OpenAPI schema defining ArsenalTools action group
-│       └── setup-agent.sh               # One-time provisioning script (IAM role, agent, action group, alias)
+│   ├── agent/
+│   │   ├── arsenalTools.js              # ★ Shared tool layer — 10 tools, single source of truth
+│   │   ├── agentChat.js                 # POST /agent/chat — invokes Bedrock Agent Core (Claude Sonnet 4.6)
+│   │   ├── agentHandler.js              # Bedrock action group wrapper — routes to arsenalTools.js
+│   │   ├── openapi-schema.json          # OpenAPI schema defining ArsenalTools action group
+│   │   └── setup-agent.sh               # One-time provisioning script (IAM role, agent, action group, alias)
+│   └── mcp/
+│       └── mcpHttp.js                   # Remote MCP server (Streamable HTTP) over the shared tool layer
+├── mcp-server/                          # Local stdio MCP server (Claude Desktop) — same shared tools
+│   ├── server.js
+│   ├── package.json
+│   └── README.md                        # Full MCP connection guide (all clients)
 ├── .github/workflows/deploy.yml         # GitHub Actions CI/CD pipeline
 └── .env                                 # Local secrets (gitignored)
 ```
