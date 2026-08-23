@@ -1,0 +1,15 @@
+{
+  "name": "gooners-world-mcp",
+  "version": "1.0.0",
+  "description": "MCP server exposing The Gooners World Arsenal FC tools to any MCP client (Claude Desktop, etc.)",
+  "type": "module",
+  "bin": {
+    "gooners-world-mcp": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
