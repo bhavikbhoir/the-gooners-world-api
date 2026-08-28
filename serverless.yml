@@ -19,6 +19,7 @@ provider:
     X_ACCESS_TOKEN: ${env:X_ACCESS_TOKEN, ssm:/tgw/x-access-token}
     X_ACCESS_TOKEN_SECRET: ${env:X_ACCESS_TOKEN_SECRET, ssm:/tgw/x-access-token-secret}
     S3_IMAGES_BUCKET: ${env:S3_IMAGES_BUCKET, 'tgw-social-images'}
+    SOCIAL_DRAFTS_TABLE: tgw-social-drafts-${self:provider.stage}
   iam:
     role:
       statements:
@@ -40,6 +41,21 @@ provider:
             - s3:GetObject
           Resource:
             - "arn:aws:s3:::tgw-social-images/*"
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+          Resource:
+            - "arn:aws:dynamodb:us-east-1:*:table/tgw-social-drafts-${self:provider.stage}"
+            - "arn:aws:dynamodb:us-east-1:*:table/tgw-social-drafts-${self:provider.stage}/index/*"
+        - Effect: Allow
+          Action:
+            - ssm:GetParameter
+            - ssm:PutParameter
+          Resource:
+            - "arn:aws:ssm:us-east-1:*:parameter/tgw/*"
   apiGateway:
     apiKeys:
       - tgw-frontend-${self:provider.stage}
@@ -147,6 +163,46 @@ functions:
           method: options
           cors: true
 
+  socialOrchestrator:
+    handler: functions/social/orchestrator.handler
+    timeout: 120
+    memorySize: 1024
+    environment:
+      FONTCONFIG_FILE: /var/task/functions/social/fonts/fonts.conf
+    description: Autopilot — detects pre-match / full-time and generates post drafts
+    events:
+      - schedule: rate(1 hour)
+
+  socialDrafts:
+    handler: functions/social/drafts.handler
+    timeout: 60
+    memorySize: 1024
+    environment:
+      FONTCONFIG_FILE: /var/task/functions/social/fonts/fonts.conf
+    description: Admin drafts API — list / approve (publish) / reject / edit
+    events:
+      - http:
+          path: admin/drafts
+          method: get
+          cors: true
+          private: true
+      - http:
+          path: admin/drafts
+          method: post
+          cors: true
+          private: true
+      - http:
+          path: admin/drafts
+          method: options
+          cors: true
+
+  refreshIgToken:
+    handler: functions/social/refreshIgToken.handler
+    timeout: 30
+    description: Keeps the Instagram long-lived token alive (weekly)
+    events:
+      - schedule: rate(7 days)
+
   mcpHttp:
     handler: functions/mcp/mcpHttp.handler
     timeout: 29
@@ -175,6 +231,36 @@ functions:
           path: mcp-public
           method: options
           cors: true
+
+resources:
+  Resources:
+    SocialDraftsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: tgw-social-drafts-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: draftId
+            AttributeType: S
+          - AttributeName: status
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: S
+        KeySchema:
+          - AttributeName: draftId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: statusIndex
+            KeySchema:
+              - AttributeName: status
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
 
 plugins:
   - serverless-offline

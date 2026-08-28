@@ -56,12 +56,14 @@ async function uploadToS3(base64Data, mimeType, matchMeta) {
   return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
 }
 
+const GRAPH_VERSION = 'v21.0';
+
 async function postToInstagram({ imageUrl, caption }) {
   const accountId = process.env.IG_ACCOUNT_ID;
   const token = process.env.IG_ACCESS_TOKEN;
   if (!accountId || !token) throw new Error('Instagram credentials not configured');
 
-  const containerUrl = `https://graph.facebook.com/v18.0/${accountId}/media`;
+  const containerUrl = `https://graph.facebook.com/${GRAPH_VERSION}/${accountId}/media`;
   const containerBody = JSON.stringify({ image_url: imageUrl, caption, access_token: token });
   const containerRes = await httpPost(containerUrl, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(containerBody) }, containerBody);
 
@@ -70,7 +72,7 @@ async function postToInstagram({ imageUrl, caption }) {
 
   await new Promise((r) => setTimeout(r, 4000));
 
-  const publishUrl = `https://graph.facebook.com/v18.0/${accountId}/media_publish`;
+  const publishUrl = `https://graph.facebook.com/${GRAPH_VERSION}/${accountId}/media_publish`;
   const publishBody = JSON.stringify({ creation_id: creationId, access_token: token });
   const publishRes = await httpPost(publishUrl, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(publishBody) }, publishBody);
 
