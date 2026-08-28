@@ -99,6 +99,14 @@ exports.handler = async (event) => {
       return reply(200, { ok: true, status: 'published' });
     }
 
+    // Re-composite the card over an attached photo and return a fresh preview
+    // (no publishing) so the admin sees the finished card before approving.
+    if (action === 'rerender') {
+      if (!body.imageBase64) return reply(400, { error: 'imageBase64 required' });
+      await reRenderWithPhoto(draft, body.imageBase64);
+      return reply(200, { ok: true, previewUrl: await presignGet(draft.imageKey, 600) });
+    }
+
     if (action === 'edit') {
       const fields = {};
       if (typeof body.instagram === 'string') fields.instagram = body.instagram;
