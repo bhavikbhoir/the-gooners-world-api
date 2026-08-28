@@ -14,9 +14,9 @@
 const crypto = require('crypto');
 const { listByStatus, getDraft, updateDraft } = require('./store');
 const { publishDraft } = require('./publish');
-const { renderCard } = require('./graphics');
+const { renderCard, renderStatement } = require('./graphics');
 const { putImage, presignGet } = require('./media');
-const { compLabel, dateLabel } = require('./copy');
+const { dateLabel } = require('./copy');
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',');
 const ADMIN_KEY = process.env.ADMIN_KEY;
@@ -31,20 +31,23 @@ function verifyToken(authHeader) {
   catch { return false; }
 }
 
-async function reRenderWithPhoto(draft, imageBase64, mimeType) {
+async function reRenderWithPhoto(draft, imageBase64) {
   const photoBuffer = Buffer.from(imageBase64, 'base64');
-  const cardBuffer = await renderCard({
-    type: draft.type,
-    homeName: draft.home,
-    awayName: draft.away,
-    homeScore: draft.homeScore,
-    awayScore: draft.awayScore,
-    homeCrest: draft.homeCrest,
-    awayCrest: draft.awayCrest,
-    competition: compLabel(draft.competition, draft.stage),
-    dateLabel: dateLabel(draft.date),
-    photoBuffer,
-  });
+  const cardBuffer = draft.kind === 'statement'
+    ? await renderStatement({
+        tag: draft.tag, headline: draft.headline, subhead: draft.subhead,
+        competition: draft.competition, photoBuffer,
+      })
+    : await renderCard({
+        type: draft.type,
+        homeName: draft.home,
+        awayName: draft.away,
+        homeScore: draft.homeScore,
+        awayScore: draft.awayScore,
+        competition: draft.competition,
+        dateLabel: dateLabel(draft.date),
+        photoBuffer,
+      });
   await putImage(draft.imageKey, cardBuffer); // overwrite same key
 }
 

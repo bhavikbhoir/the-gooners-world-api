@@ -196,6 +196,24 @@ functions:
           method: options
           cors: true
 
+  quickDraft:
+    handler: functions/social/quickDraft.handler
+    timeout: 60
+    memorySize: 1024
+    environment:
+      FONTCONFIG_FILE: /var/task/functions/social/fonts/fonts.conf
+    description: Quick Draft composer — generic templated posts (signing/injury/etc.)
+    events:
+      - http:
+          path: admin/quick-draft
+          method: post
+          cors: true
+          private: true
+      - http:
+          path: admin/quick-draft
+          method: options
+          cors: true
+
   refreshIgToken:
     handler: functions/social/refreshIgToken.handler
     timeout: 30

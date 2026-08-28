@@ -6,16 +6,22 @@ one here and point fontconfig at it.
 
 ## One-time setup (do this before the first deploy)
 
-Drop a **DejaVu Sans** TTF (regular + bold) into this folder:
+Drop the **Oswald** TTFs (our brand font) into this folder, plus DejaVu Sans as a
+Unicode fallback:
 
 ```bash
 cd functions/social/fonts
-curl -L -o DejaVuSans.ttf https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf
-curl -L -o DejaVuSans-Bold.ttf https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf
+# Oswald (brand font — used on the cards)
+curl -L -o Oswald-Regular.ttf   https://github.com/googlefonts/OswaldFont/raw/main/fonts/ttf/Oswald-Regular.ttf
+curl -L -o Oswald-Medium.ttf    https://github.com/googlefonts/OswaldFont/raw/main/fonts/ttf/Oswald-Medium.ttf
+curl -L -o Oswald-SemiBold.ttf  https://github.com/googlefonts/OswaldFont/raw/main/fonts/ttf/Oswald-SemiBold.ttf
+curl -L -o Oswald-Bold.ttf      https://github.com/googlefonts/OswaldFont/raw/main/fonts/ttf/Oswald-Bold.ttf
+# Fallback for any glyphs Oswald lacks
+curl -L -o DejaVuSans.ttf       https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf
 ```
 
-(Any TTF works — if you want a punchier headline font, add it and update the
-`<edit>` family name in `fonts.conf` to match.)
+The cards request the `Oswald` family; fontconfig also maps the legacy `Gooners`
+family onto Oswald.
 
 The `socialOrchestrator` and `socialDrafts` functions set
 `FONTCONFIG_FILE=/var/task/functions/social/fonts/fonts.conf` so librsvg finds it.
