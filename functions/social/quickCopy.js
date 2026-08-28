@@ -22,8 +22,22 @@ const GUIDES = {
   custom:       { tag: 'THE GOONERS WORLD', note: 'A general post. Headline: a short punchy line. Subhead: one supporting line. Base everything only on what is provided.' },
 };
 
-async function generateQuickCopy({ type, details }) {
+async function generateQuickCopy({ type, details, source, sourceUrl }) {
   const g = GUIDES[type] || GUIDES.custom;
+
+  const sourceBlock = source ? `
+
+A SOURCE ARTICLE was provided. Ground the caption only in facts supported by BOTH the admin details and this source. Then judge whether the admin's claim is actually supported by the source:
+- If clearly supported → verification.supported = true.
+- If the source does NOT clearly support the claim (or contradicts it) → verification.supported = false and explain briefly in verification.note. Still produce the copy, but do not overstate.
+Source (${sourceUrl}):
+"""
+${source}
+"""` : '';
+
+  const verificationField = source
+    ? `,"verification":{"supported":true|false,"note":"one short line"}`
+    : '';
 
   const prompt = `You are the social media voice for The Gooners World, an Arsenal FC fan account (@thegoonersworld / @TheGoonersWorld). Passionate, real, never hyperbolic.
 
@@ -33,7 +47,7 @@ Guidance: ${g.note}
 Facts from the admin (use ONLY these — do NOT invent any name, number, fee, date, quote, or detail not present here):
 """
 ${details}
-"""
+"""${sourceBlock}
 
 Produce:
 - instagram: full caption in fan voice, ending with 3-6 relevant hashtags (always include #Arsenal #COYG).
@@ -43,7 +57,7 @@ Produce:
 - tag: a short label for the graphic (default "${g.tag}").
 
 Respond with ONLY valid JSON, no prose:
-{"instagram":"...","x":"...","headline":"...","subhead":"...","tag":"..."}`;
+{"instagram":"...","x":"...","headline":"...","subhead":"...","tag":"..."${verificationField}}`;
 
   const response = await bedrock.send(new InvokeModelCommand({
     modelId: MODEL,

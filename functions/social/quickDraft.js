@@ -27,6 +27,23 @@ function verifyToken(authHeader) {
   catch { return false; }
 }
 
+// Fetch an article and reduce it to readable text for grounding (best-effort).
+async function fetchArticleText(url) {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GoonersWorldBot/1.0)' } });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&[a-z#0-9]+;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text ? text.slice(0, 4000) : null;
+  } catch { return null; }
+}
+
 exports.handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin || '';
   const isAllowed = !origin || ALLOWED_ORIGINS.some((o) => o.trim() === origin);
@@ -46,10 +63,17 @@ exports.handler = async (event) => {
   if (!verifyToken(authHeader)) return reply(401, { error: 'Unauthorized' });
 
   try {
-    const { type, details, competition, imageBase64, mimeType } = JSON.parse(event.body || '{}');
+    const { type, details, competition, imageBase64, sourceUrl } = JSON.parse(event.body || '{}');
     if (!type || !details) return reply(400, { error: 'type and details are required' });
 
-    const copy = await generateQuickCopy({ type, details });
+    // Optional source grounding — fetch the article so the AI can verify.
+    let source = null, sourceError = null;
+    if (sourceUrl) {
+      source = await fetchArticleText(sourceUrl);
+      if (!source) sourceError = 'Could not read that source URL — caption was NOT grounded.';
+    }
+
+    const copy = await generateQuickCopy({ type, details, source, sourceUrl });
     const photoBuffer = imageBase64 ? Buffer.from(imageBase64, 'base64') : null;
 
     const cardBuffer = await renderStatement({
@@ -76,9 +100,16 @@ exports.handler = async (event) => {
       x: copy.x,
       imageKey,
       needsPhoto: !photoBuffer,
+      sourceUrl: sourceUrl || null,
+      verification: copy.verification || null,
     });
 
-    return reply(200, { ok: true, draft: { ...draft, previewUrl: await presignGet(imageKey, 600) } });
+    return reply(200, {
+      ok: true,
+      verification: copy.verification || null,
+      sourceError,
+      draft: { ...draft, previewUrl: await presignGet(imageKey, 600) },
+    });
   } catch (err) {
     return reply(500, { error: err.message });
   }
