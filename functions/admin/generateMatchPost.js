@@ -1,10 +1,8 @@
-const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 const crypto = require('crypto');
+const { generateMatchCopy } = require('../social/copy');
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',');
 const ADMIN_KEY = process.env.ADMIN_KEY;
-const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' });
-const MODEL = 'us.anthropic.claude-sonnet-4-6';
 
 function verifyToken(authHeader) {
   if (!authHeader?.startsWith('Bearer ') || !ADMIN_KEY) return false;
@@ -37,67 +35,21 @@ exports.handler = async (event) => {
   }
 
   try {
-    const body = JSON.parse(event.body || '{}');
-    const { home, homeScore, awayScore, away, competition, date, stage, recentForm } = body;
+    const { home, homeScore, awayScore, away, competition, date, stage, recentForm } = JSON.parse(event.body || '{}');
 
-    const isArsenalHome = home === 'Arsenal' || home === 'Arsenal FC';
-    const arsenalScore = isArsenalHome ? homeScore : awayScore;
-    const oppScore = isArsenalHome ? awayScore : homeScore;
-    const opponent = isArsenalHome ? away : home;
-    const outcome = arsenalScore > oppScore ? 'win' : arsenalScore === oppScore ? 'draw' : 'loss';
-    const compLabel = stage && stage !== 'REGULAR_SEASON' ? `${competition} · ${stage.replace(/_/g, ' ')}` : competition;
-    const dateLabel = new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    const prompt = `You are the social media voice for The Gooners World, an Arsenal FC fan site with Instagram @thegoonersworld and X @TheGoonersWorld.
-
-Match data (use ONLY what is provided here — do not invent goalscorers, player names, tactical details, league positions, points, or games remaining):
-- Score: Arsenal ${arsenalScore}–${oppScore} ${opponent}
-- Competition: ${compLabel}
-- Date: ${dateLabel}
-- Outcome: Arsenal ${outcome}
-- Arsenal recent form (last 5, most recent first): ${recentForm || 'N/A'}
-
-Generate two posts using EXACTLY these formats (fill in [...] only, keep all other text verbatim):
-
-INSTAGRAM:
-Arsenal ${arsenalScore} – ${oppScore} ${opponent} 🔴
-${compLabel} · ${dateLabel}
-
-[2-3 sentences reflecting on the result and what it means. Base commentary only on the outcome and recent form string above. Do not mention specific goalscorers, tactics, or stats not provided. Passionate fan voice — real, not generic.]
-
-The Gooners World 🔴
-#Arsenal #Gunners #COYG [2-4 relevant hashtags for competition/opponent]
-
-X (strict ≤280 characters total including hashtags):
-FT: Arsenal ${arsenalScore}–${oppScore} ${opponent} 🔴
-
-[One punchy line about the result based only on the outcome. One line — raw emotion or season significance based on the form provided.]
-
-#Arsenal #COYG [1 extra relevant hashtag]
-
-Tone rules:
-- Win: celebratory but grounded, not hyperbolic
-- Draw: honest, find what worked or what frustrated
-- Loss: honest and real, no doom, trust in the squad
-
-Respond with ONLY valid JSON, no explanation before or after:
-{"instagram":"...","x":"..."}`;
-
-    const response = await bedrock.send(new InvokeModelCommand({
-      modelId: MODEL,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify({
-        anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: 700,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    }));
-
-    const raw = JSON.parse(Buffer.from(response.body).toString()).content[0].text.trim();
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Model did not return valid JSON');
-    const posts = JSON.parse(jsonMatch[0]);
+    // Delegates to the same prompt used by the autopilot orchestrator (functions/social/copy.js)
+    // so manual and automated posts never drift apart.
+    const posts = await generateMatchCopy({
+      type: 'fulltime',
+      home,
+      homeScore,
+      awayScore,
+      away,
+      competition,
+      date,
+      stage,
+      recentForm,
+    });
 
     return {
       statusCode: 200,

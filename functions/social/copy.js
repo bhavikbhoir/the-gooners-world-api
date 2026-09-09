@@ -25,12 +25,14 @@ function fulltimePrompt(m) {
   const opponent = isHome ? m.away : m.home;
   const outcome = arsenalScore > oppScore ? 'win' : arsenalScore === oppScore ? 'draw' : 'loss';
   const comp = compLabel(m.competition, m.stage);
+  const venue = isHome ? 'home' : 'away';
 
   return `You are the social media voice for The Gooners World, an Arsenal FC fan site (@thegoonersworld / @TheGoonersWorld).
 
-Match data (use ONLY this — do not invent goalscorers, player names, tactics, positions, points, or games remaining):
+Match data (use ONLY this — do not invent goalscorers, player names, tactics, positions, points, games remaining, or the stadium/location):
 - Score: Arsenal ${arsenalScore}–${oppScore} ${opponent}
 - Competition: ${comp}
+- Venue: Arsenal played ${venue}${venue === 'away' ? ' (Arsenal were the visitors — do NOT say the opponent "came to" Arsenal\'s ground, do NOT mention the Emirates or any home stadium)' : ''}
 - Date: ${dateLabel(m.date)}
 - Outcome: Arsenal ${outcome}
 - Arsenal recent form (last 5, most recent first): ${m.recentForm || 'N/A'}
@@ -41,7 +43,7 @@ INSTAGRAM:
 Arsenal ${arsenalScore} – ${oppScore} ${opponent} 🔴
 ${comp} · ${dateLabel(m.date)}
 
-[2-3 sentences on the result and what it means, based only on outcome + form above. Passionate fan voice — real, not generic.]
+[2-3 sentences on the result and what it means, based only on outcome + form + venue above. Passionate fan voice — real, not generic.]
 
 The Gooners World 🔴
 #Arsenal #Gunners #COYG [2-4 relevant hashtags]
