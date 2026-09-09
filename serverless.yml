@@ -149,6 +149,24 @@ functions:
           method: options
           cors: true
 
+  generateMatchCard:
+    handler: functions/admin/generateMatchCard.handler
+    timeout: 30
+    memorySize: 1024
+    environment:
+      FONTCONFIG_FILE: /var/task/functions/social/fonts/fonts.conf
+    description: Compose's card image — same renderer as the autopilot orchestrator
+    events:
+      - http:
+          path: admin/generate-card
+          method: post
+          cors: true
+          private: true
+      - http:
+          path: admin/generate-card
+          method: options
+          cors: true
+
   publishPost:
     handler: functions/admin/publishPost.handler
     timeout: 30
