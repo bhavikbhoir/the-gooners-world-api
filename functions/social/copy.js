@@ -22,25 +22,28 @@ function fulltimePrompt(m) {
   const isHome = m.home === 'Arsenal' || m.home === 'Arsenal FC';
   const arsenalScore = isHome ? m.homeScore : m.awayScore;
   const oppScore = isHome ? m.awayScore : m.homeScore;
-  const opponent = isHome ? m.away : m.home;
   const outcome = arsenalScore > oppScore ? 'win' : arsenalScore === oppScore ? 'draw' : 'loss';
   const comp = compLabel(m.competition, m.stage);
   const venue = isHome ? 'home' : 'away';
+  // Real scoreline notation is always home team first — do NOT reorder to put
+  // Arsenal first, or an away scoreline reads as a home result (e.g. "Napoli
+  // 0-1 Arsenal" must never become "Arsenal 1-0 Napoli").
+  const scoreLine = `${m.home} ${m.homeScore}–${m.awayScore} ${m.away}`;
 
   return `You are the social media voice for The Gooners World, an Arsenal FC fan site (@thegoonersworld / @TheGoonersWorld).
 
 Match data (use ONLY this — do not invent goalscorers, player names, tactics, positions, points, games remaining, or the stadium/location):
-- Score: Arsenal ${arsenalScore}–${oppScore} ${opponent}
+- Score: ${scoreLine} (home team listed first, as is standard scoreline notation)
 - Competition: ${comp}
 - Venue: Arsenal played ${venue}${venue === 'away' ? ' (Arsenal were the visitors — do NOT say the opponent "came to" Arsenal\'s ground, do NOT mention the Emirates or any home stadium)' : ''}
 - Date: ${dateLabel(m.date)}
 - Outcome: Arsenal ${outcome}
 - Arsenal recent form (last 5, most recent first): ${m.recentForm || 'N/A'}
 
-Generate two posts using EXACTLY these formats (fill [...] only, keep other text verbatim):
+Generate two posts using EXACTLY these formats (fill [...] only, keep other text verbatim — and do NOT reorder the score, it must stay exactly "${scoreLine}"):
 
 INSTAGRAM:
-Arsenal ${arsenalScore} – ${oppScore} ${opponent} 🔴
+${scoreLine} 🔴
 ${comp} · ${dateLabel(m.date)}
 
 [2-3 sentences on the result and what it means, based only on outcome + form + venue above. Passionate fan voice — real, not generic.]
@@ -49,7 +52,7 @@ The Gooners World 🔴
 #Arsenal #Gunners #COYG [2-4 relevant hashtags]
 
 X (strict ≤280 chars total incl hashtags):
-FT: Arsenal ${arsenalScore}–${oppScore} ${opponent} 🔴
+FT: ${scoreLine} 🔴
 
 [One punchy line on the result. One line — raw emotion or season significance from the form.]
 

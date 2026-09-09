@@ -3,12 +3,11 @@
  *
  * Compose's server-side counterpart to the autopilot orchestrator: builds the
  * same branded scoreboard card (functions/social/graphics.js renderCard) so
- * manual and automated posts always look identical. Crests are fetched here
- * (server-side, so no browser CORS issues) and goal scorers / referee are
- * included when the admin has match detail to hand.
+ * manual and automated posts always look identical. Goal scorers / referee are
+ * included when the admin has match detail to hand. No club crests.
  *
- * Body: { type, home, away, homeScore, awayScore, homeCrest?, awayCrest?,
- *         competition, date, venue?, goals?, referee?, imageBase64? }
+ * Body: { type, home, away, homeScore, awayScore, competition, date,
+ *         venue?, goals?, referee?, imageBase64? }
  */
 
 const crypto = require('crypto');
@@ -48,7 +47,7 @@ exports.handler = async (event) => {
 
   try {
     const {
-      type, home, away, homeScore, awayScore, homeCrest, awayCrest,
+      type, home, away, homeScore, awayScore,
       competition, date, venue, goals, referee, imageBase64,
     } = JSON.parse(event.body || '{}');
 
@@ -62,8 +61,6 @@ exports.handler = async (event) => {
       awayName: away,
       homeScore,
       awayScore,
-      homeCrest,
-      awayCrest,
       competition,
       dateLabel: dateLabel(date),
       venue: venue || undefined,
