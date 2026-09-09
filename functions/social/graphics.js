@@ -1,8 +1,10 @@
 /**
- * Card renderer — "Classic" design, Oswald type, competition-themed, no crests.
+ * Card renderer — "Classic" design, Oswald type, competition-themed.
+ * Single shared renderer for both the compose (manual) and autopilot flows.
  *
  * Two card types share the visual language:
- *   renderCard      — matchday scoreboard (pre-match / full-time)
+ *   renderCard      — matchday scoreboard (pre-match / full-time); optionally
+ *                      shows team crests, goal scorers and referee when supplied
  *   renderStatement — generic post (signing, injury, appreciation, on-this-day…)
  *
  * Both composite over an optional real photo (with legibility scrims) or fall
@@ -40,6 +42,18 @@ async function fetchPhoto(input) {
   } catch { return null; }
 }
 
+// Fetch a crest (any source format) and normalize to a small embeddable PNG data URI.
+async function fetchCrestUri(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    const png = await sharp(buf).resize(200, 200, { fit: 'inside' }).png().toBuffer();
+    return `data:image/png;base64,${png.toString('base64')}`;
+  } catch { return null; }
+}
+
 // Scrim + brand footer shared by both card types (SVG fragment).
 function scrims(photo) {
   return photo ? `
@@ -60,6 +74,31 @@ function footer(primary) {
     <text x="540" y="1058" text-anchor="middle" font-size="20" fill="rgba(255,255,255,0.85)" font-family="${FONT}">@thegoonersworld</text>`;
 }
 
+// Circular crest badge, flanking the score — mirrors either team's real crest when available.
+function crestSvg(uri, cx, cy, photo) {
+  if (!uri) return '';
+  const backdrop = photo ? 'rgba(0,0,0,0.38)' : 'rgba(255,255,255,0.06)';
+  return `
+    <circle cx="${cx}" cy="${cy}" r="100" fill="${backdrop}"/>
+    <image href="${uri}" x="${cx - 84}" y="${cy - 84}" width="168" height="168" preserveAspectRatio="xMidYMid meet"/>`;
+}
+
+// Compact goal-scorer list — Arsenal's goals left of centre, opponent's right.
+function goalsSvg(goals, y0) {
+  if (!goals || !goals.length) return '';
+  let y = y0;
+  return goals.slice(0, 4).map((g) => {
+    const isArsenal = /^arsenal/i.test(g.team || '');
+    const suffix = g.type === 'OWN_GOAL' ? ' og' : g.type === 'PENALTY' ? ' pen' : '';
+    const label = escapeXml(`${g.minute}' ${g.scorer}${suffix}`);
+    const row = isArsenal
+      ? `<text x="536" y="${y}" text-anchor="end" font-size="17" font-weight="600" fill="#fff" font-family="${FONT}">${label}</text>`
+      : `<text x="544" y="${y}" text-anchor="start" font-size="17" font-weight="500" fill="rgba(255,255,255,0.55)" font-family="${FONT}">${label}</text>`;
+    y += 24;
+    return row;
+  }).join('');
+}
+
 // ── matchday scoreboard ────────────────────────────────────────────
 function scoreboardSvg(o, t, photo) {
   const head = o.type === 'prematch' ? 'MATCHDAY' : 'FULL TIME';
@@ -68,6 +107,10 @@ function scoreboardSvg(o, t, photo) {
     ? `<text x="540" y="565" text-anchor="middle" font-size="130" font-weight="700" letter-spacing="8" fill="${scoreFill}" font-family="${FONT}">VS</text>`
     : `<text x="540" y="600" text-anchor="middle" font-size="196" font-weight="700" fill="${scoreFill}" font-family="${FONT}">${escapeXml(o.homeScore)} – ${escapeXml(o.awayScore)}</text>`;
   const base = photo ? '' : `<rect width="${SIZE}" height="${SIZE}" fill="#0b0b11"/><rect width="${SIZE}" height="640" fill="${t.primary}" opacity="0.5"/>`;
+  const crestY = o.type === 'prematch' ? 565 : 555;
+  const crests = `${crestSvg(o.homeCrestUri, 175, crestY, photo)}${crestSvg(o.awayCrestUri, SIZE - 175, crestY, photo)}`;
+  const goals = o.type === 'fulltime' ? goalsSvg(o.goals, 906) : '';
+  const referee = o.referee ? `<text x="540" y="884" text-anchor="middle" font-size="16" fill="rgba(255,255,255,0.5)" font-family="${FONT}">Referee: ${escapeXml(o.referee)}</text>` : '';
 
   return `<svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
     ${defs()}
@@ -77,9 +120,12 @@ function scoreboardSvg(o, t, photo) {
     <text x="60" y="98" font-size="34" font-weight="600" fill="#fff" letter-spacing="3" font-family="${FONT}">${head}</text>
     <text x="1020" y="98" text-anchor="end" font-size="30" font-weight="600" fill="${photo ? '#fff' : t.accent}" letter-spacing="2" font-family="${FONT}">${escapeXml(t.label)}</text>
     <text x="540" y="320" text-anchor="middle" font-size="82" font-weight="600" fill="#fff" font-family="${FONT}">${escapeXml(o.homeName)}</text>
+    ${crests}
     ${centre}
     <text x="540" y="748" text-anchor="middle" font-size="82" font-weight="600" fill="#fff" font-family="${FONT}">${escapeXml(o.awayName)}</text>
     <text x="540" y="858" text-anchor="middle" font-size="30" fill="#e6e6ee" letter-spacing="1" font-family="${FONT}">${escapeXml(o.dateLabel)}${o.venue ? ' · ' + escapeXml(o.venue) : ''}</text>
+    ${referee}
+    ${goals}
     ${footer(t.primary)}
   </svg>`;
 }
@@ -129,11 +175,16 @@ async function compose(svg, photoBuffer) {
   return sharp(overlay).jpeg({ quality: 88 }).toBuffer();
 }
 
-/** Matchday scoreboard card → JPEG buffer. */
+/** Matchday scoreboard card → JPEG buffer. Crests (o.homeCrest/o.awayCrest URLs), goal
+ *  scorers (o.goals) and referee (o.referee) are all optional — omitted where unavailable. */
 async function renderCard(o) {
   const t = compTheme(o.competition);
-  const photo = await fetchPhoto(o.photo || o.photoBuffer);
-  return compose(scoreboardSvg(o, t, !!photo), photo);
+  const [photo, homeCrestUri, awayCrestUri] = await Promise.all([
+    fetchPhoto(o.photo || o.photoBuffer),
+    fetchCrestUri(o.homeCrest),
+    fetchCrestUri(o.awayCrest),
+  ]);
+  return compose(scoreboardSvg({ ...o, homeCrestUri, awayCrestUri }, t, !!photo), photo);
 }
 
 /** Generic statement card (signing / injury / appreciation / …) → JPEG buffer. */

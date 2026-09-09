@@ -72,6 +72,8 @@ async function buildDraft(type, match, recentForm) {
     awayName: match.awayTeam.shortName || match.awayTeam.name,
     homeScore: payload.homeScore,
     awayScore: payload.awayScore,
+    homeCrest: payload.homeCrest,
+    awayCrest: payload.awayCrest,
     competition: payload.competition,
     dateLabel: dateLabel(payload.date),
     // No photo at generation time — admin can attach one at approval.
