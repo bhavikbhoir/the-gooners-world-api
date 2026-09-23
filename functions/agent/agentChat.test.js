@@ -63,3 +63,16 @@ test('checkRate resets after window expires', () => {
   const later = now + 601000;
   assert.equal(checkRate(ip, later), true, 'should reset after 10 minutes');
 });
+
+const { buildInputText } = require('./agentChat');
+
+test('buildInputText passes text-mode messages through unchanged', () => {
+  assert.equal(buildInputText('Next match?'), 'Next match?');
+  assert.equal(buildInputText('Next match?', 'text'), 'Next match?');
+});
+
+test('buildInputText appends spoken-style instruction in voice mode', () => {
+  const out = buildInputText('Next match?', 'voice');
+  assert.ok(out.startsWith('Next match?\n\n[Voice mode:'));
+  assert.match(out, /No lists/);
+});

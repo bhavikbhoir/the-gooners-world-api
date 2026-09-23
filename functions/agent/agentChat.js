@@ -10,6 +10,16 @@ const AGENT_ID = process.env.BEDROCK_AGENT_ID;
 const AGENT_ALIAS_ID = process.env.BEDROCK_AGENT_ALIAS_ID;
 const MAX_MSG_LENGTH = 500;
 
+// Voice turns are read aloud by the browser's speech synthesis, so the agent
+// is asked for short spoken-style answers instead of lists/tables.
+const VOICE_INSTRUCTION = '[Voice mode: the user is speaking and will hear your reply read aloud. '
+  + 'Answer in at most 3 short conversational sentences. No lists, tables, markdown, emoji or URLs. '
+  + 'Say scores like "two-one" and dates like "Saturday the 14th".]';
+
+function buildInputText(message, mode) {
+  return mode === 'voice' ? `${message}\n\n${VOICE_INSTRUCTION}` : message;
+}
+
 // ── Rate limiter ───────────────────────────────────────────────────
 const ipCounts = {};
 function checkRate(ip) {
@@ -32,6 +42,8 @@ function sanitizeReply(text) {
     .trim() || "I couldn't find that information right now. Please try again.";
 }
 
+exports.buildInputText = buildInputText;
+
 exports.handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin || '';
   const headers = cors(origin);
@@ -46,7 +58,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { message, sessionId: sid } = JSON.parse(event.body || '{}');
+    const { message, sessionId: sid, mode } = JSON.parse(event.body || '{}');
     if (!message) return { statusCode: 400, headers, body: JSON.stringify({ error: 'message required' }) };
     if (message.length > MAX_MSG_LENGTH) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Message too long.' }) };
 
@@ -59,7 +71,7 @@ exports.handler = async (event) => {
       agentId: AGENT_ID,
       agentAliasId: AGENT_ALIAS_ID,
       sessionId,
-      inputText: message,
+      inputText: buildInputText(message, mode),
     }));
 
     let text = '';
