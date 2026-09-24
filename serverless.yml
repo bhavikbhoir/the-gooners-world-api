@@ -37,6 +37,10 @@ provider:
             - "arn:aws:bedrock:us-east-1:*:agent-alias/*"
         - Effect: Allow
           Action:
+            - transcribe:StartStreamTranscription
+          Resource: "*"
+        - Effect: Allow
+          Action:
             - s3:PutObject
             - s3:GetObject
           Resource:
@@ -117,6 +121,17 @@ functions:
     events:
       - http:
           path: agent/chat
+          method: post
+          cors: true
+          private: true
+
+  agentTranscribe:
+    handler: functions/agent/transcribe.handler
+    timeout: 29
+    description: Voice input fallback for browsers without Web Speech recognition
+    events:
+      - http:
+          path: agent/transcribe
           method: post
           cors: true
           private: true
