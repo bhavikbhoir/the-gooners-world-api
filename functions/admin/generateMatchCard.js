@@ -6,7 +6,7 @@
  * manual and automated posts always look identical. Goal scorers / referee are
  * included when the admin has match detail to hand. No club crests.
  *
- * Body: { type, home, away, homeScore, awayScore, competition, date,
+ * Body: { home, away, homeScore, awayScore, competition, date,
  *         venue?, goals?, referee?, imageBase64? }
  */
 
@@ -47,7 +47,7 @@ exports.handler = async (event) => {
 
   try {
     const {
-      type, home, away, homeScore, awayScore,
+      home, away, homeScore, awayScore,
       competition, date, venue, goals, referee, imageBase64,
     } = JSON.parse(event.body || '{}');
 
@@ -56,7 +56,7 @@ exports.handler = async (event) => {
     const photoBuffer = imageBase64 ? Buffer.from(imageBase64, 'base64') : null;
 
     const cardBuffer = await renderCard({
-      type: type === 'prematch' ? 'prematch' : 'fulltime',
+      type: 'fulltime',
       homeName: home,
       awayName: away,
       homeScore,

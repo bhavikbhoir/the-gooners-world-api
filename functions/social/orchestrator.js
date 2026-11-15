@@ -1,10 +1,12 @@
 /**
  * Autopilot orchestrator (scheduled, hourly).
  *
- * Reads Arsenal's fixtures, detects two moments — build-up (~3h before kickoff)
- * and full-time (just after the whistle) — and for each generates copy + a
- * branded card, then writes a DRAFT awaiting 1-tap approval. Idempotent: a
- * given match+type is only ever drafted once.
+ * Reads Arsenal's fixtures, detects full-time (just after the whistle), then
+ * generates copy + a branded card and writes a DRAFT awaiting 1-tap approval.
+ * Idempotent: a given match+type is only ever drafted once.
+ *
+ * Build-up (pre-match) drafts were removed deliberately — the site's own
+ * MatchPrediction card covers pre-kickoff, and the social feed is reaction-led.
  */
 
 const { generateMatchCopy, compLabel, dateLabel } = require('./copy');
@@ -104,10 +106,6 @@ exports.handler = async () => {
   for (const m of matches) {
     const kickoff = new Date(m.utcDate).getTime();
 
-    // Build-up: kickoff within the next 3 hours.
-    if (['SCHEDULED', 'TIMED'].includes(m.status) && kickoff - now > 0 && kickoff - now <= 3 * HOUR) {
-      actions.push(await buildDraft('prematch', m, recentForm));
-    }
     // Full-time: finished within the last 6 hours.
     if (m.status === 'FINISHED' && now - kickoff <= 6 * HOUR) {
       actions.push(await buildDraft('fulltime', m, recentForm));

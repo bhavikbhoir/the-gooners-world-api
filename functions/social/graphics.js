@@ -3,7 +3,7 @@
  * Single shared renderer for both the compose (manual) and autopilot flows.
  *
  * Two card types share the visual language:
- *   renderCard      — matchday scoreboard (pre-match / full-time); optionally
+ *   renderCard      — full-time scoreboard; optionally
  *                      shows goal scorers and referee when supplied (no crests)
  *   renderStatement — generic post (signing, injury, appreciation, on-this-day…)
  *
@@ -80,13 +80,11 @@ function goalsSvg(goals, y0) {
 
 // ── matchday scoreboard ────────────────────────────────────────────
 function scoreboardSvg(o, t, photo) {
-  const head = o.type === 'prematch' ? 'MATCHDAY' : 'FULL TIME';
+  const head = 'FULL TIME';
   const scoreFill = photo ? '#fff' : t.accent;
-  const centre = o.type === 'prematch'
-    ? `<text x="540" y="565" text-anchor="middle" font-size="130" font-weight="700" letter-spacing="8" fill="${scoreFill}" font-family="${FONT}">VS</text>`
-    : `<text x="540" y="600" text-anchor="middle" font-size="196" font-weight="700" fill="${scoreFill}" font-family="${FONT}">${escapeXml(o.homeScore)} – ${escapeXml(o.awayScore)}</text>`;
+  const centre = `<text x="540" y="600" text-anchor="middle" font-size="196" font-weight="700" fill="${scoreFill}" font-family="${FONT}">${escapeXml(o.homeScore)} – ${escapeXml(o.awayScore)}</text>`;
   const base = photo ? '' : `<rect width="${SIZE}" height="${SIZE}" fill="#0b0b11"/><rect width="${SIZE}" height="640" fill="${t.primary}" opacity="0.5"/>`;
-  const goals = o.type === 'fulltime' ? goalsSvg(o.goals, 906) : '';
+  const goals = goalsSvg(o.goals, 906);
   const referee = o.referee ? `<text x="540" y="884" text-anchor="middle" font-size="16" fill="rgba(255,255,255,0.5)" font-family="${FONT}">Referee: ${escapeXml(o.referee)}</text>` : '';
 
   return `<svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">

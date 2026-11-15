@@ -63,47 +63,8 @@ Tone: Win = celebratory but grounded. Draw = honest. Loss = honest and real, no 
 Respond with ONLY valid JSON: {"instagram":"...","x":"..."}`;
 }
 
-function prematchPrompt(m) {
-  const isHome = m.home === 'Arsenal' || m.home === 'Arsenal FC';
-  const opponent = isHome ? m.away : m.home;
-  const venue = isHome ? 'home' : 'away';
-  const comp = compLabel(m.competition, m.stage);
-
-  return `You are the social media voice for The Gooners World, an Arsenal FC fan site (@thegoonersworld / @TheGoonersWorld).
-
-Upcoming match (use ONLY this — do not invent lineups, injuries, tactics, positions, or predicted scores):
-- Fixture: Arsenal vs ${opponent} (${venue})
-- Competition: ${comp}
-- Kickoff: ${dateLabel(m.date)}
-- Arsenal recent form (last 5, most recent first): ${m.recentForm || 'N/A'}
-
-Generate two matchday build-up posts (fill [...] only, keep other text verbatim):
-
-INSTAGRAM:
-MATCHDAY 🔴
-Arsenal vs ${opponent}
-${comp} · ${dateLabel(m.date)}
-
-[2-3 sentences of anticipation based only on the fixture + form. Rally the fans. No predicted score, no lineup.]
-
-The Gooners World 🔴
-#Arsenal #Gunners #COYG [2-4 relevant hashtags]
-
-X (strict ≤280 chars total incl hashtags):
-🔴 MATCHDAY | Arsenal vs ${opponent}
-${comp}
-
-[One line of build-up energy based only on the fixture + form.]
-
-#Arsenal #COYG [1 extra hashtag]
-
-Tone: confident, hungry, united — never arrogant, never predict a scoreline.
-
-Respond with ONLY valid JSON: {"instagram":"...","x":"..."}`;
-}
-
 async function generateMatchCopy(match) {
-  const prompt = match.type === 'prematch' ? prematchPrompt(match) : fulltimePrompt(match);
+  const prompt = fulltimePrompt(match);
 
   const response = await bedrock.send(new InvokeModelCommand({
     modelId: MODEL,
