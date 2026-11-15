@@ -14,6 +14,11 @@ async function putImage(key, buffer, contentType = 'image/jpeg') {
   return key;
 }
 
+/** Narration MP3s live in the same bucket; the renderer fetches via presigned URL. */
+function putAudio(key, buffer) {
+  return putImage(key, buffer, 'audio/mpeg');
+}
+
 async function getImage(key) {
   const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
   const chunks = [];
@@ -25,4 +30,4 @@ function presignGet(key, expiresIn = 300) {
   return getSignedUrl(s3, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn });
 }
 
-module.exports = { putImage, getImage, presignGet };
+module.exports = { putImage, putAudio, getImage, presignGet };

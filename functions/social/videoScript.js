@@ -104,13 +104,17 @@ ${goals}
 APPROVED HOOK STATS — you MUST choose exactly one of these keys. You may not invent a statistic. We do not have shots, xG, possession, passes or distance covered, so never mention them.
 ${candidateList}
 
-WRITE A SCRIPT WITH SIX SCENES, each one spoken line:
-- hook    — open on the chosen stat. Do NOT open with the scoreline; the viewer already knows it. Make them stay.
-- score   — state the result plainly, once.
-- moments — walk the goals in order. Only the scorers listed above.
-- verdict — THE MOST IMPORTANT LINE. A genuine read on what this result means: what changed, what it costs or buys Arsenal, what it says about the run. One or two sentences with a point of view. Do NOT restate the scoreline or list stats here. An honest, specific opinion — not hype, and not doom after a loss.
-- table   — where this leaves Arsenal, using only the position and points above.
-- outro   — invite a follow for the verdict after every match. One short line.
+WRITE A SCRIPT WITH SIX SCENES, each one spoken line.
+
+LENGTH IS A HARD CONSTRAINT. The whole script is read aloud and must land under 32 seconds, which is roughly 85 spoken words TOTAL. Short-form viewers leave long before a minute. Stay inside these word counts:
+- hook    (max 18 words) — open on the chosen stat. Do NOT open with the scoreline; the viewer already knows it. Make them stay.
+- score   (max 10 words) — state the result plainly, once.
+- moments (max 20 words) — walk the goals in order. Only the scorers listed above. Surnames only. Do not narrate what you cannot see.
+- verdict (max 24 words) — THE MOST IMPORTANT LINE. A genuine read on what this result means: what changed, what it costs or buys Arsenal, what it says about the run. One sentence with a point of view. Do NOT restate the scoreline or list stats. Honest and specific — not hype, and not doom after a loss.
+- table   (max 12 words) — where this leaves Arsenal, using only the position and points above.
+- outro   (max 10 words) — invite a follow for the verdict after every match.
+
+Cut every clause that does not earn its place. Shorter is better than complete.
 
 TONE: a knowledgeable Arsenal fan talking to other fans. Confident, never arrogant. After a loss be honest, not catastrophic. British English. Spoken aloud by a text-to-speech voice, so write for the ear: short sentences, no emoji, no hashtags, no brackets, no symbols, and write numbers as words where a person would say them.
 
