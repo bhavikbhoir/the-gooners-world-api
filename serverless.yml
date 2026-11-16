@@ -20,6 +20,11 @@ provider:
     X_ACCESS_TOKEN_SECRET: ${env:X_ACCESS_TOKEN_SECRET, ssm:/tgw/x-access-token-secret}
     S3_IMAGES_BUCKET: ${env:S3_IMAGES_BUCKET, 'tgw-social-images'}
     SOCIAL_DRAFTS_TABLE: tgw-social-drafts-${self:provider.stage}
+    # Remotion Lambda is provisioned outside this stack. Empty values are
+    # expected before it is deployed: the orchestrator then skips video and
+    # still produces the card + copy draft.
+    REMOTION_FUNCTION_NAME: ${env:REMOTION_FUNCTION_NAME, ''}
+    REMOTION_SERVE_URL: ${env:REMOTION_SERVE_URL, ''}
   iam:
     role:
       statements:
@@ -202,11 +207,15 @@ functions:
 
   socialOrchestrator:
     handler: functions/social/orchestrator.handler
-    timeout: 120
+    # Scripting + narration is ~20s, but the video render is remote and polled
+    # to completion, which dominates. Idle wait on an hourly job that acts a few
+    # dozen times a season costs pennies; splitting into a fire-and-forget
+    # render plus a poller would save that at the cost of real complexity.
+    timeout: 600
     memorySize: 1024
     environment:
       FONTCONFIG_FILE: /var/task/functions/social/fonts/fonts.conf
-    description: Autopilot — detects pre-match / full-time and generates post drafts
+    description: Autopilot — detects full-time and generates card + video drafts
     events:
       - schedule: rate(1 hour)
 

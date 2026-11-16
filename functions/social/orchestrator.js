@@ -13,6 +13,8 @@ const { generateMatchCopy, compLabel, dateLabel } = require('./copy');
 const { renderCard } = require('./graphics');
 const { putImage } = require('./media');
 const { createDraft, draftExists } = require('./store');
+const { generateMatchVideo } = require('./matchVideo');
+const { renderMatchVideo, isRenderAvailable } = require('./renderVideo');
 
 const ARSENAL_ID = 57;
 const API = 'https://api.football-data.org/v4';
@@ -82,6 +84,8 @@ async function buildDraft(type, match, recentForm) {
   const imageKey = `drafts/${type}-${match.id}.jpg`;
   await putImage(imageKey, cardBuffer);
 
+  const video = await buildVideo(payload, match);
+
   await createDraft({
     ...payload,
     type,
@@ -90,8 +94,68 @@ async function buildDraft(type, match, recentForm) {
     x: copy.x,
     imageKey,
     needsPhoto: type === 'fulltime', // FT posts look best with a real photo
+    ...video,
   });
-  return { created: true, matchId: match.id, type };
+  return { created: true, matchId: match.id, type, video: Boolean(video.videoUrl) };
+}
+
+/**
+ * Goalscorers for one match.
+ *
+ * The team-matches listing carries scores but no goal detail — that only comes
+ * from the single-match endpoint. Without this the video's "how it happened"
+ * scene would be empty on every match. Returns [] rather than throwing: a
+ * missing goal list should soften the video, not lose it.
+ */
+async function fetchGoals(matchId) {
+  try {
+    const { goals } = await fd(`/matches/${matchId}`);
+    return (goals || []).map((g) => ({
+      minute: g.minute,
+      scorer: g.scorer?.name,
+      team: g.team?.name,
+      type: g.type,
+    }));
+  } catch (err) {
+    console.warn(`[orchestrator] no goal detail for match ${matchId}:`, err.message);
+    return [];
+  }
+}
+
+/**
+ * Attach a rendered match-review video to the draft.
+ *
+ * Never fails the draft. The card and copy are the product that has shipped for
+ * months; video is the new half and is not worth losing a full-time post over,
+ * so a render failure is recorded on the draft and surfaced in the queue rather
+ * than thrown.
+ */
+async function buildVideo(payload, match) {
+  if (!isRenderAvailable()) return {};
+
+  try {
+    const { props, script, durationMs, voice } = await generateMatchVideo({
+      ...payload,
+      home: match.homeTeam.name,
+      away: match.awayTeam.name,
+      goals: await fetchGoals(match.id),
+    });
+    const rendered = await renderMatchVideo(props);
+
+    return {
+      videoUrl: rendered.url,
+      videoKey: rendered.outKey,
+      videoBucket: rendered.bucketName,
+      videoDurationMs: durationMs,
+      videoVoice: `${voice.voiceId}/${voice.engine}`,
+      youtubeTitle: script.youtubeTitle,
+      youtubeDescription: script.youtubeDescription,
+      instagramReelCaption: script.instagramCaption,
+    };
+  } catch (err) {
+    console.error(`[orchestrator] video failed for match ${match.id}:`, err.message);
+    return { videoError: err.message };
+  }
 }
 
 exports.handler = async () => {
