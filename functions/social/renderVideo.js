@@ -6,12 +6,15 @@
  * provisioned outside this Serverless stack, so this module only needs their
  * names, passed in as environment variables.
  *
- * Imports from @remotion/lambda/client deliberately — the full @remotion/lambda
- * package pulls in the deployment tooling and would bloat a Lambda bundle that
- * already carries sharp.
+ * Uses @remotion/lambda-client, NOT @remotion/lambda. The full package depends
+ * on @remotion/bundler, @remotion/cli and @remotion/renderer, which drag in
+ * rspack, babel and esbuild — about 250MB. Serverless packages one zip shared
+ * by every function, so that pushed unrelated functions past Lambda's 250MB
+ * unzipped limit and broke the whole deploy. The client package has no
+ * dependencies and only knows how to invoke a renderer someone else deployed.
  */
 
-const { renderMediaOnLambda, getRenderProgress } = require('@remotion/lambda/client');
+const { renderMediaOnLambda, getRenderProgress } = require('@remotion/lambda-client');
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const FUNCTION_NAME = process.env.REMOTION_FUNCTION_NAME;
