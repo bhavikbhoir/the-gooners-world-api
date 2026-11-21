@@ -16,8 +16,10 @@ const { synthesizeNarration } = require('./narration');
 const { compTheme } = require('./graphics');
 const { putAudio, presignGet } = require('./media');
 
-// Long enough to cover a cold Lambda plus the render itself.
-const AUDIO_URL_TTL = 3600;
+// A render takes 1-2 minutes; this covers a cold Lambda and a retry without
+// leaving a working URL lying around for an hour. The props travel through
+// Remotion's bucket and a local file, so the shorter it lives, the better.
+const AUDIO_URL_TTL = 900;
 
 const isArsenal = (name) => /^arsenal/i.test(String(name || ''));
 

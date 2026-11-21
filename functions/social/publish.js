@@ -7,7 +7,7 @@
  */
 
 const crypto = require('crypto');
-const { getImage, presignGet } = require('./media');
+const { getImage, presignGet, presignFrom } = require('./media');
 const { getSecret } = require('./secrets');
 
 const GRAPH_VERSION = 'v21.0';
@@ -41,6 +41,62 @@ async function postToInstagram({ imageKey, caption }) {
     { 'Content-Type': 'application/json' }, pubBody);
   if (p.status !== 200) throw new Error(`IG publish: ${p.body}`);
   return JSON.parse(p.body);
+}
+
+/**
+ * Publish a Reel.
+ *
+ * Unlike a photo, Instagram transcodes video asynchronously: the container is
+ * accepted immediately but publishing before it reports FINISHED fails. So this
+ * polls status_code rather than using the photo path's fixed sleep.
+ *
+ * The URL must be fetchable by Meta's servers, so the caller passes a presigned
+ * one — the rendered mp4 lives in Remotion's private output bucket.
+ */
+async function postReelToInstagram({ videoUrl, caption, coverUrl }) {
+  const accountId = process.env.IG_ACCOUNT_ID;
+  const token = await getSecret('/tgw/ig-access-token');
+  if (!accountId || !token) throw new Error('Instagram credentials not configured');
+
+  const body = {
+    media_type: 'REELS',
+    video_url: videoUrl,
+    caption,
+    share_to_feed: true,
+    access_token: token,
+    ...(coverUrl ? { cover_url: coverUrl } : {}),
+  };
+
+  const c = await httpsRequest('POST', `https://graph.facebook.com/${GRAPH_VERSION}/${accountId}/media`,
+    { 'Content-Type': 'application/json' }, JSON.stringify(body));
+  if (c.status !== 200) throw new Error(`IG reel container: ${c.body}`);
+  const creationId = JSON.parse(c.body).id;
+
+  await waitForContainer(creationId, token);
+
+  const p = await httpsRequest('POST', `https://graph.facebook.com/${GRAPH_VERSION}/${accountId}/media_publish`,
+    { 'Content-Type': 'application/json' },
+    JSON.stringify({ creation_id: creationId, access_token: token }));
+  if (p.status !== 200) throw new Error(`IG reel publish: ${p.body}`);
+  return JSON.parse(p.body);
+}
+
+/** Poll a video container until Instagram finishes transcoding it. */
+async function waitForContainer(creationId, token, { timeoutMs = 300000, intervalMs = 5000 } = {}) {
+  const startedAt = Date.now();
+  for (;;) {
+    const res = await httpsRequest('GET',
+      `https://graph.facebook.com/${GRAPH_VERSION}/${creationId}?fields=status_code,status&access_token=${token}`,
+      {});
+    const { status_code: code, status } = JSON.parse(res.body || '{}');
+
+    if (code === 'FINISHED') return;
+    if (code === 'ERROR') throw new Error(`IG transcode failed: ${status || 'unknown'}`);
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error(`IG transcode timed out after ${timeoutMs / 1000}s (container ${creationId})`);
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
 }
 
 // ── X (Twitter) OAuth 1.0a ──────────────────────────────────────────
@@ -116,6 +172,15 @@ async function publishDraft(draft, platforms) {
     if (!draft.imageKey) throw new Error('Instagram requires an image');
     results.instagram = await postToInstagram({ imageKey: draft.imageKey, caption: draft.instagram });
   }
+  if (platforms.includes('reel')) {
+    if (!draft.videoKey || !draft.videoBucket) throw new Error('No rendered video on this draft');
+    // Long TTL: Meta fetches the file during transcoding, which can take minutes.
+    const videoUrl = await presignFrom(draft.videoBucket, draft.videoKey, 1800);
+    results.reel = await postReelToInstagram({
+      videoUrl,
+      caption: draft.instagramReelCaption || draft.instagram,
+    });
+  }
   if (platforms.includes('x')) {
     let mediaId = null;
     if (imageBuffer) mediaId = await uploadXMedia(imageBuffer);
@@ -124,4 +189,4 @@ async function publishDraft(draft, platforms) {
   return results;
 }
 
-module.exports = { publishDraft, postToInstagram, postToX, uploadXMedia };
+module.exports = { publishDraft, postToInstagram, postReelToInstagram, postToX, uploadXMedia };

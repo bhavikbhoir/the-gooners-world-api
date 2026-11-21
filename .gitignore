@@ -5,3 +5,6 @@ node_modules/
 *.log
 .DS_Store
 package-lock.json
+
+# Generated render payload — contains a presigned S3 URL and match data
+.video-props.json

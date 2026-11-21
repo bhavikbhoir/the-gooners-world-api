@@ -15,7 +15,7 @@ const crypto = require('crypto');
 const { listByStatus, getDraft, updateDraft } = require('./store');
 const { publishDraft } = require('./publish');
 const { renderCard, renderStatement } = require('./graphics');
-const { putImage, presignGet } = require('./media');
+const { putImage, presignGet, presignFrom } = require('./media');
 const { dateLabel } = require('./copy');
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',');
@@ -75,6 +75,11 @@ exports.handler = async (event) => {
       const withPreview = await Promise.all(drafts.map(async (d) => ({
         ...d,
         previewUrl: d.imageKey ? await presignGet(d.imageKey, 600) : null,
+        // Signed fresh on every list: the URL stored at render time has long
+        // since expired, and the admin needs to play and download the file.
+        videoPreviewUrl: d.videoKey && d.videoBucket
+          ? await presignFrom(d.videoBucket, d.videoKey, 3600)
+          : null,
       })));
       return reply(200, { drafts: withPreview });
     }

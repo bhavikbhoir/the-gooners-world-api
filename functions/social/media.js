@@ -27,7 +27,16 @@ async function getImage(key) {
 }
 
 function presignGet(key, expiresIn = 300) {
-  return getSignedUrl(s3, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn });
+  return presignFrom(BUCKET, key, expiresIn);
 }
 
-module.exports = { putImage, putAudio, getImage, presignGet };
+/**
+ * Presign an object in any bucket we can read. Remotion Lambda writes rendered
+ * videos into its own private bucket, so Instagram needs a signed URL pointing
+ * there rather than at S3_IMAGES_BUCKET.
+ */
+function presignFrom(bucket, key, expiresIn = 300) {
+  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn });
+}
+
+module.exports = { putImage, putAudio, getImage, presignGet, presignFrom };
