@@ -31,3 +31,7 @@ jobs:
         env:
           BEDROCK_AGENT_ID: ${{ secrets.BEDROCK_AGENT_ID }}
           BEDROCK_AGENT_ALIAS_ID: ${{ secrets.BEDROCK_AGENT_ALIAS_ID }}
+          # serverless.yml reads these via ${env:...}; without them here they
+          # resolve to '' and the orchestrator silently skips video rendering.
+          REMOTION_FUNCTION_NAME: ${{ secrets.REMOTION_FUNCTION_NAME }}
+          REMOTION_SERVE_URL: ${{ secrets.REMOTION_SERVE_URL }}
