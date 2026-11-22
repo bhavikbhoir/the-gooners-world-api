@@ -145,7 +145,11 @@ const BANNED = [
   /\bst\.? james'?s? park\b/i, /\banfield\b/i, /\betihad\b/i, /\bold trafford\b/i,
   /\bstamford bridge\b/i, /\bemirates\b/i, /\bvilla park\b/i, /\bselhurst\b/i,
   /\bgoodison\b/i, /\bmolineux\b/i, /\bthe bridge\b/i, /\btottenham hotspur stadium\b/i,
-  /\b(?:stadium|arena|ground)\b/i,
+  // Needs a proper noun in front: "St James' Park", "Emirates Stadium".
+  // A bare /\b(stadium|arena|ground)\b/i blocked "Arsenal ground out a
+  // draw" and "stood their ground", which are ordinary football English,
+  // and cost a real match its video.
+  /\b[A-Z][\w']+(?:\s+[A-Z][\w']+)*\s+(?:Stadium|Arena|Park|Ground)\b/,
   // Stats the data plan does not include — if these appear, they are invented.
   /\bx\.?g\b/i, /\bpossession\b/i, /\bshots? on target\b/i, /\bpass(?:es|ing) accuracy\b/i,
   /\bcorners?\b/i, /\bkilometres|\bdistance covered\b/i,
