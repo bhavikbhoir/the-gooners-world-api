@@ -33,6 +33,19 @@ const SCENE_ORDERS = {
   verdictLed: ['hook', 'verdict', 'score', 'moments', 'table', 'outro'],
 };
 
+/**
+ * Scene order for this match.
+ *
+ * Our football-data.org plan returns no `goals` array at all, so the moments
+ * scene is usually impossible. It is dropped rather than described: an earlier
+ * build passed "(no goalscorer data available)" into the prompt as a placeholder
+ * and the model dutifully read it aloud.
+ */
+function sceneOrder(variant, hasGoals) {
+  const order = SCENE_ORDERS[variant] || SCENE_ORDERS.hookFirst;
+  return hasGoals ? order : order.filter((k) => k !== 'moments');
+}
+
 const isArsenal = (name) => /^arsenal/i.test(String(name || ''));
 
 /**
@@ -77,9 +90,10 @@ function buildPrompt(m) {
   // first — "Napoli 0-1 Arsenal" must not become "Arsenal 1-0 Napoli".
   const scoreLine = `${m.home} ${m.homeScore}–${m.awayScore} ${m.away}`;
 
-  const goals = (m.goals || []).length
-    ? m.goals.map((g) => `  - ${g.minute}' ${g.scorer} (${g.team})${g.type && g.type !== 'REGULAR' ? ` [${g.type}]` : ''}`).join('\n')
-    : '  - (no goalscorer data available)';
+  const hasGoals = Boolean((m.goals || []).length);
+  const goalsBlock = hasGoals
+    ? `- Goals:\n${m.goals.map((g) => `  - ${g.minute}' ${g.scorer} (${g.team})${g.type && g.type !== 'REGULAR' ? ` [${g.type}]` : ''}`).join('\n')}`
+    : '';
 
   const candidates = hookCandidates(m);
   const candidateList = candidates.length
@@ -98,19 +112,17 @@ MATCH DATA — this is the complete set of facts. Do NOT introduce any other num
 - Arsenal recent form (last 5, most recent first): ${m.recentForm || 'unknown'}
 - League position after this match: ${m.table?.position || 'unknown'}
 - Points: ${m.table?.points || 'unknown'}
-- Goals:
-${goals}
+${goalsBlock}
 
 APPROVED HOOK STATS — you MUST choose exactly one of these keys. You may not invent a statistic. We do not have shots, xG, possession, passes or distance covered, so never mention them.
 ${candidateList}
 
-WRITE A SCRIPT WITH SIX SCENES, each one spoken line.
+WRITE A SCRIPT WITH ${hasGoals ? 'SIX' : 'FIVE'} SCENES, each one spoken line. Never mention missing or unavailable data.
 
 LENGTH IS A HARD CONSTRAINT. The whole script is read aloud and must land under 32 seconds, which is roughly 85 spoken words TOTAL. Short-form viewers leave long before a minute. Stay inside these word counts:
 - hook    (max 18 words) — open on the chosen stat. Do NOT open with the scoreline; the viewer already knows it. Make them stay.
 - score   (max 10 words) — state the result plainly, once.
-- moments (max 20 words) — walk the goals in order. Only the scorers listed above. Surnames only. Do not narrate what you cannot see.
-- verdict (max 24 words) — THE MOST IMPORTANT LINE. A genuine read on what this result means: what changed, what it costs or buys Arsenal, what it says about the run. One sentence with a point of view. Do NOT restate the scoreline or list stats. Honest and specific — not hype, and not doom after a loss.
+${hasGoals ? "- moments (max 20 words) — walk the goals in order. Only the scorers listed above. Surnames only. Do not narrate what you cannot see.\n" : ''}- verdict (max 24 words) — THE MOST IMPORTANT LINE. A genuine read on what this result means: what changed, what it costs or buys Arsenal, what it says about the run. One sentence with a point of view. Do NOT restate the scoreline or list stats. Honest and specific — not hype, and not doom after a loss.
 - table   (max 12 words) — where this leaves Arsenal, using only the position and points above.
 - outro   (max 10 words) — invite a follow for the verdict after every match.
 
@@ -126,7 +138,7 @@ Respond with ONLY valid JSON in exactly this shape:
   "verdict": "<the on-screen verdict text, max 22 words>",
   "tableDetail": "<short on-screen phrase, e.g. 'four clear at the top', max 6 words>",
   "narration": {
-    "hook": "...", "score": "...", "moments": "...",
+    "hook": "...", "score": "...",${hasGoals ? ' "moments": "...",' : ''}
     "verdict": "...", "table": "...", "outro": "..."
   },
   "youtubeTitle": "<search-shaped, max 70 chars, include both team names and the score>",
@@ -171,8 +183,8 @@ function findInvented(script) {
 }
 
 /** Narration lines in scene order, ready for synthesizeNarration(). */
-function toLines(variant, narration) {
-  const order = SCENE_ORDERS[variant] || SCENE_ORDERS.hookFirst;
+function toLines(variant, narration, hasGoals) {
+  const order = sceneOrder(variant, hasGoals);
   return order
     .map((key) => ({ key, text: String(narration?.[key] || '').trim() }))
     .filter((l) => l.text);
@@ -242,11 +254,11 @@ async function generateVideoScript(match) {
       points: match.table?.points || '—',
       detail: out.tableDetail || '',
     },
-    lines: toLines(variant, out.narration),
+    lines: toLines(variant, out.narration, Boolean((match.goals || []).length)),
     youtubeTitle: out.youtubeTitle || '',
     youtubeDescription: out.youtubeDescription || '',
     instagramCaption: out.instagramCaption || '',
   };
 }
 
-module.exports = { generateVideoScript, hookCandidates, findInvented, SCENE_ORDERS };
+module.exports = { generateVideoScript, hookCandidates, findInvented, sceneOrder, SCENE_ORDERS };
